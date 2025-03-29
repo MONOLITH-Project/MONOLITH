@@ -8,7 +8,8 @@
 - [x] Build a cross-compiler toolchain.
 - [x] Boot into x86_64.
 - [ ] UEFI support.
-- [ ] GDT/IDT Initialization.
+- [x] GDT Initialization.
+- [ ] IDT Initialization.
 - [ ] SIMD support.
 
 ## Basic I/O

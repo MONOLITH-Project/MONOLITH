@@ -1,0 +1,110 @@
+/*
+ * Copyright (c) 2025, Ibrahim KAIKAA <ibrahimkaikaa@gmail.com>
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+#include "gdt.h"
+
+typedef struct
+{
+    uint16_t limit_low;
+    uint16_t base_low;
+    uint8_t base_middle;
+    uint8_t access;
+    uint8_t granularity;
+    uint8_t base_high;
+} __attribute__((packed)) gdt_entry_t;
+
+typedef struct
+{
+    uint16_t length;
+    uint16_t base_low;
+    uint8_t base_mid;
+    uint8_t flags1;
+    uint8_t flags2;
+    uint8_t base_hi;
+    uint32_t base_upper32;
+    uint32_t reserved;
+} __attribute__((packed)) tss_entry_t;
+
+typedef struct
+{
+    uint16_t limit;
+    uint64_t base;
+} __attribute__((packed)) gdt_ptr_t;
+
+typedef struct
+{
+    uint32_t reserved;
+    uint64_t rsp0;
+    uint64_t rsp1;
+    uint64_t rsp2;
+    uint64_t reserved2;
+    uint64_t ist1;
+    uint64_t ist2;
+    uint64_t ist3;
+    uint64_t ist4;
+    uint64_t ist5;
+    uint64_t ist6;
+    uint64_t ist7;
+    uint64_t reserved3;
+    uint16_t reserved4;
+    uint16_t iomap_base;
+} __attribute__((packed)) tss_t;
+
+struct
+{
+    gdt_entry_t entries[5];
+    tss_entry_t tss;
+} __attribute__((packed)) gdt;
+
+gdt_ptr_t gdt_ptr = {0};
+static tss_t tss = {0};
+
+extern void flush_gdt();
+extern void flush_tss();
+
+void init_gdt()
+{
+    set_gdt_gate(0, 0, 0, 0, 0);                // Null segment
+    set_gdt_gate(1, 0, 0xFFFFFFFF, 0x9A, 0x20); // Code segment
+    set_gdt_gate(2, 0, 0xFFFFFFFF, 0x92, 0xA0); // Data segment
+    set_gdt_gate(3, 0, 0xFFFFFFFF, 0xFA, 0x20); // User mode code segment
+    set_gdt_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xA0); // User mode data segment
+
+    // TSS
+    tss.iomap_base = sizeof(tss_t);
+    load_tss(&tss);
+
+    gdt_ptr.limit = sizeof(gdt) - 1;
+    gdt_ptr.base = (uint64_t) &gdt;
+
+    flush_gdt();
+    flush_tss();
+}
+
+void set_gdt_gate(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)
+{
+    gdt.entries[index].base_low = (base & 0xFFFF);
+    gdt.entries[index].base_middle = (base >> 16) & 0xFF;
+    gdt.entries[index].base_high = (base >> 24) & 0xFF;
+
+    gdt.entries[index].limit_low = (limit & 0xFFFF);
+    gdt.entries[index].granularity = (limit >> 16) & 0x0F;
+
+    gdt.entries[index].granularity |= gran & 0xF0;
+    gdt.entries[index].access = access;
+}
+
+void load_tss(void *tss)
+{
+    const uint64_t addr = (uint64_t) tss;
+    gdt.tss.length = sizeof(tss_t);
+    gdt.tss.base_low = addr & 0xFFFF;
+    gdt.tss.base_mid = (addr >> 16) & 0xFF;
+    gdt.tss.base_hi = (addr >> 24) & 0xFF;
+    gdt.tss.base_upper32 = addr >> 32;
+    gdt.tss.flags1 = 0x89;
+    gdt.tss.flags2 = 0x00;
+    gdt.tss.reserved = 0;
+}

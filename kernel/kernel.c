@@ -3,12 +3,14 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include "gdt/gdt.h"
+
 void outb(unsigned short port, unsigned char value)
 {
     __asm__ volatile("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
-void kmain(void)
+void print_hello_world()
 {
     const char *str = "Hello, World!";
     char *vidptr = (char *) 0xb8000;
@@ -25,6 +27,13 @@ void kmain(void)
         outb(0x3D4, 0x0F);
         outb(0x3D5, j & 0xFF);
     }
+}
+
+void kmain(void)
+{
+    init_gdt();
+
+    print_hello_world();
 
     while (1)
         __asm__("hlt");

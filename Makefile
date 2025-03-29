@@ -16,12 +16,14 @@ KERNEL_BIN := $(BUILD_DIR)/kernel.bin
 ISO_FILE := $(BUILD_DIR)/myos.iso
 
 # Find all source files
-ASM_SRC := $(shell find boot -name "*.asm" 2>/dev/null)
+BOOT_ASM_SRC := $(shell find boot -name "*.asm" 2>/dev/null)
+KERNEL_ASM_SRC := $(shell find kernel -name "*.asm" 2>/dev/null)
+ASM_SRC := $(BOOT_ASM_SRC) $(KERNEL_ASM_SRC)
 C_SRC := $(shell find kernel -name "*.c" 2>/dev/null)
 
 # Generate object file paths
-ASM_OBJ := $(patsubst %.asm,$(BUILD_DIR)/%.o,$(ASM_SRC))
-C_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(C_SRC))
+ASM_OBJ := $(patsubst %,$(BUILD_DIR)/%.o,$(ASM_SRC))
+C_OBJ := $(patsubst %,$(BUILD_DIR)/%.o,$(C_SRC))
 ALL_OBJ := $(ASM_OBJ) $(C_OBJ)
 
 # Compiler and linker flags
@@ -54,12 +56,12 @@ define create_dir
 endef
 
 # Compile assembly
-$(BUILD_DIR)/%.o: %.asm | $(BUILD_DIR)
+$(BUILD_DIR)/%.asm.o: %.asm | $(BUILD_DIR)
 	$(create_dir)
 	nasm -f elf64 $< -o $@
 
 # Compile C files
-$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR) toolchain
+$(BUILD_DIR)/%.c.o: %.c | $(BUILD_DIR) toolchain
 	$(create_dir)
 	$(CC) $(CFLAGS) -c $< -o $@
 

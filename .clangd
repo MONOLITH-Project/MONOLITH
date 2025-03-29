@@ -1,5 +1,5 @@
 CompileFlags:
-  Add: [-std=c11, -Wall, -Wextra]
+  Add: [-std=c99, -Wall, -Wextra, -xc]
 
 Index:
   Background: Build
