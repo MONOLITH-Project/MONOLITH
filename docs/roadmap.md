@@ -5,7 +5,7 @@
 - [ ] Design logo and visual identity.
 
 ## Boot & Initial System Setup
-- [ ] Build a cross-compiler toolchain.
+- [x] Build a cross-compiler toolchain.
 - [x] Boot into x86_64.
 - [ ] UEFI support.
 - [ ] GDT/IDT Initialization.
