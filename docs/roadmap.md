@@ -5,7 +5,9 @@
 - [ ] Design logo and visual identity.
 
 ## Boot & Initial System Setup
-- [ ] Bootloader for x86_64.
+- [ ] Build a cross-compiler toolchain.
+- [x] Boot into x86_64.
+- [ ] UEFI support.
 - [ ] GDT/IDT Initialization.
 - [ ] SIMD support.
 
