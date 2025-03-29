@@ -3,11 +3,11 @@
 ; SPDX-License-Identifier: GPL-3.0
 ;
 
-extern gdt_ptr
+extern gdtr
 
 global flush_gdt
 flush_gdt:
-	lgdt [rel gdt_ptr]
+	lgdt [rel gdtr]
 	push 8
 	lea rax, [rel .flush]
 	push rax

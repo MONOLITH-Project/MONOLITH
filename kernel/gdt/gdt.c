@@ -5,6 +5,10 @@
 
 #include "gdt.h"
 
+/*
+ * Global Descriptor Table Entry Descriptor.
+ * https://wiki.osdev.org/Global_Descriptor_Table#Long_Mode_System_Segment_Descriptor
+ */
 typedef struct
 {
     uint16_t limit_low;
@@ -27,13 +31,31 @@ typedef struct
     uint32_t reserved;
 } __attribute__((packed)) tss_entry_t;
 
-typedef struct
+/*
+ * Global Descriptor Table.
+ * https://wiki.osdev.org/Global_Descriptor_Table#Table
+ */
+struct
+{
+    gdt_entry_t entries[5];
+    tss_entry_t tss;
+} __attribute__((packed)) gdt;
+
+/*
+ * GDTR structure.
+ * https://wiki.osdev.org/Global_Descriptor_Table#GDTR
+ */
+struct
 {
     uint16_t limit;
     uint64_t base;
-} __attribute__((packed)) gdt_ptr_t;
+} __attribute__((packed)) gdtr = {0};
 
-typedef struct
+/*
+ * Task State Segment structure.
+ * https://wiki.osdev.org/Task_State_Segment#Long_Mode
+ */
+static struct
 {
     uint32_t reserved;
     uint64_t rsp0;
@@ -50,22 +72,14 @@ typedef struct
     uint64_t reserved3;
     uint16_t reserved4;
     uint16_t iomap_base;
-} __attribute__((packed)) tss_t;
-
-struct
-{
-    gdt_entry_t entries[5];
-    tss_entry_t tss;
-} __attribute__((packed)) gdt;
-
-gdt_ptr_t gdt_ptr = {0};
-static tss_t tss = {0};
+} __attribute__((packed)) tss = {0};
 
 extern void flush_gdt();
 extern void flush_tss();
 
 void init_gdt()
 {
+    // https://wiki.osdev.org/GDT_Tutorial#Flat_/_Long_Mode_Setup
     set_gdt_gate(0, 0, 0, 0, 0);                // Null segment
     set_gdt_gate(1, 0, 0xFFFFFFFF, 0x9A, 0x20); // Code segment
     set_gdt_gate(2, 0, 0xFFFFFFFF, 0x92, 0xA0); // Data segment
@@ -73,11 +87,11 @@ void init_gdt()
     set_gdt_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xA0); // User mode data segment
 
     // TSS
-    tss.iomap_base = sizeof(tss_t);
+    tss.iomap_base = sizeof(tss);
     load_tss(&tss);
 
-    gdt_ptr.limit = sizeof(gdt) - 1;
-    gdt_ptr.base = (uint64_t) &gdt;
+    gdtr.limit = sizeof(gdt) - 1;
+    gdtr.base = (uint64_t) &gdt;
 
     flush_gdt();
     flush_tss();
@@ -99,7 +113,7 @@ void set_gdt_gate(int index, uint32_t base, uint32_t limit, uint8_t access, uint
 void load_tss(void *tss)
 {
     const uint64_t addr = (uint64_t) tss;
-    gdt.tss.length = sizeof(tss_t);
+    gdt.tss.length = sizeof(tss);
     gdt.tss.base_low = addr & 0xFFFF;
     gdt.tss.base_mid = (addr >> 16) & 0xFF;
     gdt.tss.base_hi = (addr >> 24) & 0xFF;
