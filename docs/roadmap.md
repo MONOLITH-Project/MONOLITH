@@ -10,7 +10,6 @@
 - [ ] UEFI support.
 - [x] GDT Initialization.
 - [x] IDT Initialization.
-- [ ] SIMD support.
 
 ## Basic I/O
 - [ ] Console TTY (with PS/2 keyboard input).
@@ -20,6 +19,7 @@
 - [ ] Basic memory management.
   - [ ] Physical memory manager.
   - [ ] Virtual memory manager.
+- [ ] Heap allocator.
 
 ## Storage
 - [ ] Virtual File System.
@@ -36,7 +36,8 @@
   - [ ] Format partitions.
 
 ## CPU & Multiprocessing
-- [ ] APIC
+- [ ] SIMD (SSE, AVX, ...).
+- [ ] APIC.
 - [ ] APIC timer.
 - [ ] HPET.
 - [ ] SMP.
@@ -59,6 +60,8 @@
 - [ ] VESA Video Modes.
 - [ ] GUI.
 - [ ] Graphics library.
+- [ ] Font rendering.
+- [ ] Window manager.
 
 ## Networking
 - [ ] Ethernet driver.
@@ -72,6 +75,37 @@
 - [ ] DHCP client.
 - [ ] DNS client.
 - [ ] TLS/SSL support.
+
+## Syscalls
+- [ ] Process Management
+  - [ ] fork
+  - [ ] exec
+  - [ ] exit
+  - [ ] wait
+  - [ ] getpid
+- [ ] Memory Management
+  - [ ] mmap
+  - [ ] munmap
+  - [ ] brk
+- [ ] File Operations
+  - [ ] open
+  - [ ] close
+  - [ ] read
+  - [ ] write
+  - [ ] lseek
+  - [ ] stat
+  - [ ] ioctl
+  - [ ] fcntl
+- [ ] Directory Operations
+  - [ ] opendir
+  - [ ] readdir
+  - [ ] mkdir
+  - [ ] rmdir
+- [ ] File System
+  - [ ] mount
+  - [ ] umount
+  - [ ] chdir
+  - [ ] getcwd
 
 ## POSIX Compatibility
 _TODO_
