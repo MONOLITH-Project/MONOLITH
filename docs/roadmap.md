@@ -24,6 +24,16 @@
 ## Storage
 - [ ] Virtual File System.
 - [ ] ISO9660 filesystem support.
+- [ ] FAT filesystem support.
+  - [ ] Read.
+  - [ ] Write.
+  - [ ] Create files.
+  - [ ] Format partitions.
+- [ ] EXT2 filesystem support.
+  - [ ] Read.
+  - [ ] Write.
+  - [ ] Create files.
+  - [ ] Format partitions.
 
 ## CPU & Multiprocessing
 - [ ] APIC
@@ -45,6 +55,23 @@
 - [ ] IDE/ATA disk driver.
 - [ ] AHCI disk driver.
 
-## Advanced Features
-- [ ] Networking.
+## Video and Graphics
+- [ ] VESA Video Modes.
 - [ ] GUI.
+- [ ] Graphics library.
+
+## Networking
+- [ ] Ethernet driver.
+- [ ] TCP/IP stack.
+  - [ ] IPv4 implementation.
+  - [ ] IPv6 implementation.
+  - [ ] TCP protocol.
+  - [ ] UDP protocol.
+  - [ ] ICMP protocol (ping).
+  - [ ] Socket API.
+- [ ] DHCP client.
+- [ ] DNS client.
+- [ ] TLS/SSL support.
+
+## POSIX Compatibility
+_TODO_
