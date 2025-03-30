@@ -27,7 +27,7 @@ C_OBJ := $(patsubst %,$(BUILD_DIR)/%.o,$(C_SRC))
 ALL_OBJ := $(ASM_OBJ) $(C_OBJ)
 
 # Compiler and linker flags
-CFLAGS := -ffreestanding -g -Wall -Wextra -Iinclude -std=c11
+CFLAGS := -ffreestanding -g -Wall -Wextra -Iinclude -std=c99
 LDFLAGS := -n -T boot/linker.ld
 
 .PHONY: all clean toolchain iso run run-debug
