@@ -34,6 +34,10 @@ struct interrupt_registers
     uint64_t ss;
 } __attribute__((packed));
 
+/*
+ * IDT Gate Descriptor
+ * https://wiki.osdev.org/Interrupt_Descriptor_Table#Example_Code_2
+ */
 typedef struct
 {
     uint16_t offset0;
@@ -43,15 +47,23 @@ typedef struct
     uint16_t offset1;
     uint32_t offset2;
     uint32_t zero;
-} __attribute__((packed)) IDTEntry;
+} __attribute__((packed)) idt_entry_t;
 
-struct
+/*
+ * IDTR
+ * https://wiki.osdev.org/Interrupt_Descriptor_Table#IDTR
+ */
+static struct
 {
     uint16_t limit;
     uint64_t base;
-} __attribute__((packed)) idtPointer;
+} __attribute__((packed)) idtr;
 
-IDTEntry idtEntries[256];
+/*
+ * Interrupt Descriptor Table
+ * https://wiki.osdev.org/Interrupt_Descriptor_Table#Table_2
+ */
+static idt_entry_t idt_entries[256];
 
 extern void isr0();
 extern void isr1();
@@ -105,9 +117,9 @@ extern void irq15();
 
 void init_idt()
 {
-    idtPointer.limit = sizeof(idtEntries) - 1;
-    idtPointer.base = (uint64_t) &idtEntries;
-    memset(&idtEntries, 0, sizeof(idtEntries));
+    idtr.limit = sizeof(idt_entries) - 1;
+    idtr.base = (uint64_t) &idt_entries;
+    memset(&idt_entries, 0, sizeof(idt_entries));
 
     // Remap the PIC
     outb(0x11, 0x20);
@@ -177,18 +189,18 @@ void init_idt()
 void set_idt_gate(uint8_t num, void *handler)
 {
     uint64_t p = (uint64_t) handler;
-    idtEntries[num].offset0 = (uint16_t) p;
-    idtEntries[num].selector = 0x08;
-    idtEntries[num].ist = 0;
-    idtEntries[num].flags = 0x8E;
-    idtEntries[num].offset1 = (uint16_t) (p >> 16);
-    idtEntries[num].offset2 = (uint32_t) (p >> 32);
-    idtEntries[num].zero = 0;
+    idt_entries[num].offset0 = (uint16_t) p;
+    idt_entries[num].selector = 0x08;
+    idt_entries[num].ist = 0;
+    idt_entries[num].flags = 0x8E;
+    idt_entries[num].offset1 = (uint16_t) (p >> 16);
+    idt_entries[num].offset2 = (uint32_t) (p >> 32);
+    idt_entries[num].zero = 0;
 }
 
 void flush_idt()
 {
-    __asm__ volatile("lidtq %0" : : "m"(idtPointer));
+    __asm__ volatile("lidtq %0" : : "m"(idtr));
     __asm__ volatile("sti");
 }
 
