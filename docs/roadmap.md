@@ -9,7 +9,7 @@
 - [x] Boot into x86_64.
 - [ ] UEFI support.
 - [x] GDT Initialization.
-- [ ] IDT Initialization.
+- [x] IDT Initialization.
 - [ ] SIMD support.
 
 ## Basic I/O
