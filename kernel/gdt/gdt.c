@@ -4,6 +4,7 @@
  */
 
 #include "gdt.h"
+#include "../serial.h"
 
 /*
  * Global Descriptor Table Entry Descriptor.
@@ -95,6 +96,7 @@ void init_gdt()
 
     flush_gdt();
     flush_tss();
+    debug_log("[+] GDT initialized\n");
 }
 
 void set_gdt_gate(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)

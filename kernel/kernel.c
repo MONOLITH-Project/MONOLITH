@@ -6,6 +6,7 @@
 #include "gdt/gdt.h"
 #include "idt/idt.h"
 #include "klibc/io.h"
+#include "serial.h"
 
 void print_hello_world()
 {
@@ -28,6 +29,7 @@ void print_hello_world()
 
 void kmain(void)
 {
+    start_debug_serial(SERIAL_COM1);
     init_gdt();
     init_idt();
 

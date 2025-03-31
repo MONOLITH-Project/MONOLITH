@@ -77,10 +77,10 @@ $(ISO_FILE): $(KERNEL_BIN) | $(ISO_DIR)/boot/grub
 
 # Run in QEMU
 run: $(ISO_FILE)
-	qemu-system-x86_64 -cdrom $(ISO_FILE)
+	qemu-system-x86_64 -cdrom $(ISO_FILE) -serial stdio
 
 run-debug: $(ISO_FILE)
-	qemu-system-x86_64 -cdrom $(ISO_FILE) -s -S
+	qemu-system-x86_64 -cdrom $(ISO_FILE) -serial stdio -s -S
 
 # Clean build artifacts but keep toolchain
 clean:

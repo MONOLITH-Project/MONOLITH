@@ -4,8 +4,9 @@
  */
 
 #include "idt.h"
-#include "../klibc/memory.h"
 #include "../klibc/io.h"
+#include "../klibc/memory.h"
+#include "../serial.h"
 
 struct interrupt_registers
 {
@@ -184,6 +185,7 @@ void init_idt()
     set_idt_gate(47, (void *) irq15);
 
     flush_idt();
+    debug_log("[+] IDT initialized\n");
 }
 
 void set_idt_gate(uint8_t num, void *handler)
@@ -245,7 +247,11 @@ static const char *error_messages[] = {
 void isr_handler(struct interrupt_registers *regs)
 {
     if (regs->isrNumber < 32) {
-        // TODO: add panic handling
+        debug_log("[-] System panic! Error: ");
+        debug_log(error_messages[regs->isrNumber]);
+        debug_log("\n");
+        while (1)
+            __asm__("hlt");
     }
 }
 

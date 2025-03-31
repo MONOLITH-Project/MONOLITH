@@ -13,7 +13,7 @@
 
 ## Basic I/O
 - [ ] Console TTY (with PS/2 keyboard input).
-- [ ] Serial port driver.
+- [x] Serial port driver.
 
 ## Memory Management
 - [ ] Basic memory management.
