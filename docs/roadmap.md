@@ -36,7 +36,7 @@
   - [ ] Format partitions.
 
 ## CPU & Multiprocessing
-- [ ] SIMD (SSE, AVX, ...).
+- [x] SIMD (SSE, AVX, ...).
 - [ ] APIC.
 - [ ] APIC timer.
 - [ ] HPET.
