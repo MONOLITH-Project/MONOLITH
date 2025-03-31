@@ -5,6 +5,8 @@
 
 #include "serial.h"
 #include "klibc/io.h"
+#include <stdarg.h>
+#include <stdint.h>
 
 /*
  * Debug serial port.
@@ -86,4 +88,70 @@ void debug_log(const char *message)
 {
     if (debug_port)
         write_string(debug_port, message);
+}
+
+static inline void _debug_logd(int d)
+{
+    char buffer[16];
+    int i = 0, is_negative = 0;
+
+    if (d < 0) {
+        is_negative = 1;
+        d = -d;
+    }
+
+    if (d == 0) {
+        buffer[i++] = '0';
+    } else {
+        while (d > 0) {
+            buffer[i++] = '0' + (d % 10);
+            d /= 10;
+        }
+
+        if (is_negative)
+            buffer[i++] = '-';
+    }
+
+    /* Reverse the string */
+    for (int j = 0; j < i / 2; j++) {
+        char tmp = buffer[j];
+        buffer[j] = buffer[i - j - 1];
+        buffer[i - j - 1] = tmp;
+    }
+
+    buffer[i] = '\0';
+
+    write_string(debug_port, buffer);
+}
+
+void debug_logf(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+
+    if (!debug_port)
+        return;
+
+    while (*format != '\0') {
+        if (*format == '%') {
+            format++;
+            /* TODO: Add more format specifiers */
+            switch (*format) {
+            case 's':
+                write_string(debug_port, va_arg(args, const char *));
+                break;
+            case 'c':
+                write_serial(debug_port, va_arg(args, int));
+                break;
+            case 'd':
+                _debug_logd(va_arg(args, int));
+            case '%':
+                write_serial(debug_port, '%');
+                break;
+            }
+        } else {
+            write_serial(debug_port, *format);
+        }
+        format++;
+    }
 }

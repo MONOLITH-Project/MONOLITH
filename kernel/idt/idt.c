@@ -247,9 +247,8 @@ static const char *error_messages[] = {
 void isr_handler(struct interrupt_registers *regs)
 {
     if (regs->isrNumber < 32) {
-        debug_log("[-] System panic! Error: ");
-        debug_log(error_messages[regs->isrNumber]);
-        debug_log("\n");
+        debug_logf("[-] System panic!\n");
+        debug_logf("[-] Error: %s\n", error_messages[regs->isrNumber]);
         while (1)
             __asm__("hlt");
     }
