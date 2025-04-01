@@ -145,6 +145,7 @@ void debug_log_fmt(const char *format, ...)
                 break;
             case 'd':
                 _debug_logd(va_arg(args, int));
+                break;
             case '%':
                 write_serial(_debug_port, '%');
                 break;
