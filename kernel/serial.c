@@ -12,7 +12,7 @@
  * Debug serial port.
  * Set to 0 by default when the serial port is not initialized.
  */
-static serial_port_t debug_port = 0;
+static serial_port_t _debug_port = 0;
 
 bool init_serial(serial_port_t port)
 {
@@ -77,7 +77,7 @@ size_t read_bytes(serial_port_t port, char *buffer, size_t size)
 bool start_debug_serial(serial_port_t port)
 {
     if (init_serial(port)) {
-        debug_port = port;
+        _debug_port = port;
         debug_log("[+] Started serial debugging\n");
         return true;
     }
@@ -86,8 +86,8 @@ bool start_debug_serial(serial_port_t port)
 
 void debug_log(const char *message)
 {
-    if (debug_port)
-        write_string(debug_port, message);
+    if (_debug_port)
+        write_string(_debug_port, message);
 }
 
 static inline void _debug_logd(int d)
@@ -121,15 +121,15 @@ static inline void _debug_logd(int d)
 
     buffer[i] = '\0';
 
-    write_string(debug_port, buffer);
+    write_string(_debug_port, buffer);
 }
 
-void debug_logf(const char *format, ...)
+void debug_log_fmt(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
 
-    if (!debug_port)
+    if (!_debug_port)
         return;
 
     while (*format != '\0') {
@@ -138,19 +138,19 @@ void debug_logf(const char *format, ...)
             /* TODO: Add more format specifiers */
             switch (*format) {
             case 's':
-                write_string(debug_port, va_arg(args, const char *));
+                write_string(_debug_port, va_arg(args, const char *));
                 break;
             case 'c':
-                write_serial(debug_port, va_arg(args, int));
+                write_serial(_debug_port, va_arg(args, int));
                 break;
             case 'd':
                 _debug_logd(va_arg(args, int));
             case '%':
-                write_serial(debug_port, '%');
+                write_serial(_debug_port, '%');
                 break;
             }
         } else {
-            write_serial(debug_port, *format);
+            write_serial(_debug_port, *format);
         }
         format++;
     }

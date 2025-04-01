@@ -26,8 +26,8 @@ struct interrupt_registers
     uint64_t rbx;
     uint64_t rax;
     uint64_t core;
-    uint64_t isrNumber;
-    uint64_t errorCode;
+    uint64_t isr_number;
+    uint64_t error_code;
     uint64_t rip;
     uint64_t cs;
     uint64_t rflags;
@@ -58,69 +58,73 @@ static struct
 {
     uint16_t limit;
     uint64_t base;
-} __attribute__((packed)) idtr;
+} __attribute__((packed)) _idtr;
 
 /*
  * Interrupt Descriptor Table
  * https://wiki.osdev.org/Interrupt_Descriptor_Table#Table_2
  */
-static idt_entry_t idt_entries[256];
+static idt_entry_t _idt_entries[256];
 
-extern void isr0();
-extern void isr1();
-extern void isr2();
-extern void isr3();
-extern void isr4();
-extern void isr5();
-extern void isr6();
-extern void isr7();
-extern void isr8();
-extern void isr9();
-extern void isr10();
-extern void isr11();
-extern void isr12();
-extern void isr13();
-extern void isr14();
-extern void isr15();
-extern void isr16();
-extern void isr17();
-extern void isr18();
-extern void isr19();
-extern void isr20();
-extern void isr21();
-extern void isr22();
-extern void isr23();
-extern void isr24();
-extern void isr25();
-extern void isr26();
-extern void isr27();
-extern void isr28();
-extern void isr29();
-extern void isr30();
-extern void isr31();
+static void *_irq_routines[16] = {NULL};
 
-extern void irq0();
-extern void irq1();
-extern void irq2();
-extern void irq3();
-extern void irq4();
-extern void irq5();
-extern void irq6();
-extern void irq7();
-extern void irq8();
-extern void irq9();
-extern void irq10();
-extern void irq11();
-extern void irq12();
-extern void irq13();
-extern void irq14();
-extern void irq15();
+extern void _isr0();
+extern void _isr1();
+extern void _isr2();
+extern void _isr3();
+extern void _isr4();
+extern void _isr5();
+extern void _isr6();
+extern void _isr7();
+extern void _isr8();
+extern void _isr9();
+extern void _isr10();
+extern void _isr11();
+extern void _isr12();
+extern void _isr13();
+extern void _isr14();
+extern void _isr15();
+extern void _isr16();
+extern void _isr17();
+extern void _isr18();
+extern void _isr19();
+extern void _isr20();
+extern void _isr21();
+extern void _isr22();
+extern void _isr23();
+extern void _isr24();
+extern void _isr25();
+extern void _isr26();
+extern void _isr27();
+extern void _isr28();
+extern void _isr29();
+extern void _isr30();
+extern void _isr31();
+
+extern void _irq0();
+extern void _irq1();
+extern void _irq2();
+extern void _irq3();
+extern void _irq4();
+extern void _irq5();
+extern void _irq6();
+extern void _irq7();
+extern void _irq8();
+extern void _irq9();
+extern void _irq10();
+extern void _irq11();
+extern void _irq12();
+extern void _irq13();
+extern void _irq14();
+extern void _irq15();
 
 void init_idt()
 {
-    idtr.limit = sizeof(idt_entries) - 1;
-    idtr.base = (uint64_t) &idt_entries;
-    memset(&idt_entries, 0, sizeof(idt_entries));
+    debug_log("[*] Initializing the IDT...\n");
+
+    _idtr.limit = sizeof(_idt_entries) - 1;
+    _idtr.base = (uint64_t) &_idt_entries;
+    memset(&_idt_entries, 0, sizeof(_idt_entries));
 
     // Remap the PIC
     outb(0x11, 0x20);
@@ -134,75 +138,76 @@ void init_idt()
     outb(0x00, 0x21);
     outb(0x00, 0xA1);
 
-    set_idt_gate(0, (void *) isr0);
-    set_idt_gate(1, (void *) isr1);
-    set_idt_gate(2, (void *) isr2);
-    set_idt_gate(3, (void *) isr3);
-    set_idt_gate(4, (void *) isr4);
-    set_idt_gate(5, (void *) isr5);
-    set_idt_gate(6, (void *) isr6);
-    set_idt_gate(7, (void *) isr7);
-    set_idt_gate(8, (void *) isr8);
-    set_idt_gate(9, (void *) isr9);
-    set_idt_gate(10, (void *) isr10);
-    set_idt_gate(11, (void *) isr11);
-    set_idt_gate(12, (void *) isr12);
-    set_idt_gate(13, (void *) isr13);
-    set_idt_gate(14, (void *) isr14);
-    set_idt_gate(15, (void *) isr15);
-    set_idt_gate(16, (void *) isr16);
-    set_idt_gate(17, (void *) isr17);
-    set_idt_gate(18, (void *) isr18);
-    set_idt_gate(19, (void *) isr19);
-    set_idt_gate(20, (void *) isr20);
-    set_idt_gate(21, (void *) isr21);
-    set_idt_gate(22, (void *) isr22);
-    set_idt_gate(23, (void *) isr23);
-    set_idt_gate(24, (void *) isr24);
-    set_idt_gate(25, (void *) isr25);
-    set_idt_gate(26, (void *) isr26);
-    set_idt_gate(27, (void *) isr27);
-    set_idt_gate(28, (void *) isr28);
-    set_idt_gate(29, (void *) isr29);
-    set_idt_gate(30, (void *) isr30);
-    set_idt_gate(31, (void *) isr31);
+    set_idt_gate(0, (void *) _isr0);
+    set_idt_gate(1, (void *) _isr1);
+    set_idt_gate(2, (void *) _isr2);
+    set_idt_gate(3, (void *) _isr3);
+    set_idt_gate(4, (void *) _isr4);
+    set_idt_gate(5, (void *) _isr5);
+    set_idt_gate(6, (void *) _isr6);
+    set_idt_gate(7, (void *) _isr7);
+    set_idt_gate(8, (void *) _isr8);
+    set_idt_gate(9, (void *) _isr9);
+    set_idt_gate(10, (void *) _isr10);
+    set_idt_gate(11, (void *) _isr11);
+    set_idt_gate(12, (void *) _isr12);
+    set_idt_gate(13, (void *) _isr13);
+    set_idt_gate(14, (void *) _isr14);
+    set_idt_gate(15, (void *) _isr15);
+    set_idt_gate(16, (void *) _isr16);
+    set_idt_gate(17, (void *) _isr17);
+    set_idt_gate(18, (void *) _isr18);
+    set_idt_gate(19, (void *) _isr19);
+    set_idt_gate(20, (void *) _isr20);
+    set_idt_gate(21, (void *) _isr21);
+    set_idt_gate(22, (void *) _isr22);
+    set_idt_gate(23, (void *) _isr23);
+    set_idt_gate(24, (void *) _isr24);
+    set_idt_gate(25, (void *) _isr25);
+    set_idt_gate(26, (void *) _isr26);
+    set_idt_gate(27, (void *) _isr27);
+    set_idt_gate(28, (void *) _isr28);
+    set_idt_gate(29, (void *) _isr29);
+    set_idt_gate(30, (void *) _isr30);
+    set_idt_gate(31, (void *) _isr31);
 
-    set_idt_gate(32, (void *) irq0);
-    set_idt_gate(33, (void *) irq1);
-    set_idt_gate(34, (void *) irq2);
-    set_idt_gate(35, (void *) irq3);
-    set_idt_gate(36, (void *) irq4);
-    set_idt_gate(37, (void *) irq5);
-    set_idt_gate(38, (void *) irq6);
-    set_idt_gate(39, (void *) irq7);
-    set_idt_gate(40, (void *) irq8);
-    set_idt_gate(41, (void *) irq9);
-    set_idt_gate(42, (void *) irq10);
-    set_idt_gate(43, (void *) irq11);
-    set_idt_gate(44, (void *) irq12);
-    set_idt_gate(45, (void *) irq13);
-    set_idt_gate(46, (void *) irq14);
-    set_idt_gate(47, (void *) irq15);
+    set_idt_gate(32, (void *) _irq0);
+    set_idt_gate(33, (void *) _irq1);
+    set_idt_gate(34, (void *) _irq2);
+    set_idt_gate(35, (void *) _irq3);
+    set_idt_gate(36, (void *) _irq4);
+    set_idt_gate(37, (void *) _irq5);
+    set_idt_gate(38, (void *) _irq6);
+    set_idt_gate(39, (void *) _irq7);
+    set_idt_gate(40, (void *) _irq8);
+    set_idt_gate(41, (void *) _irq9);
+    set_idt_gate(42, (void *) _irq10);
+    set_idt_gate(43, (void *) _irq11);
+    set_idt_gate(44, (void *) _irq12);
+    set_idt_gate(45, (void *) _irq13);
+    set_idt_gate(46, (void *) _irq14);
+    set_idt_gate(47, (void *) _irq15);
 
+    debug_log("[*] Flushing the IDT...\n");
     flush_idt();
     debug_log("[+] IDT initialized\n");
 }
 
 void set_idt_gate(uint8_t num, void *handler)
 {
-    uint64_t p = (uint64_t) handler;
-    idt_entries[num].offset0 = (uint16_t) p;
-    idt_entries[num].selector = 0x08;
-    idt_entries[num].ist = 0;
-    idt_entries[num].flags = 0x8E;
-    idt_entries[num].offset1 = (uint16_t) (p >> 16);
-    idt_entries[num].offset2 = (uint32_t) (p >> 32);
-    idt_entries[num].zero = 0;
+    uint64_t address = (uint64_t) handler;
+    _idt_entries[num].offset0 = (uint16_t) address;
+    _idt_entries[num].selector = 0x08;
+    _idt_entries[num].ist = 0;
+    _idt_entries[num].flags = 0x8E;
+    _idt_entries[num].offset1 = (uint16_t) (address >> 16);
+    _idt_entries[num].offset2 = (uint32_t) (address >> 32);
+    _idt_entries[num].zero = 0;
 }
 
 void flush_idt()
 {
-    __asm__ volatile("lidtq %0" : : "m"(idtr));
+    __asm__ volatile("lidtq %0" : : "m"(_idtr));
     __asm__ volatile("sti");
 }
 
@@ -246,34 +251,32 @@ static const char *error_messages[] = {
 
 void isr_handler(struct interrupt_registers *regs)
 {
-    if (regs->isrNumber < 32) {
-        debug_logf("[-] System panic!\n");
-        debug_logf("[-] Error: %s\n", error_messages[regs->isrNumber]);
+    if (regs->isr_number < 32) {
+        debug_log_fmt("[-] System panic!\n");
+        debug_log_fmt("[-] Error: %s\n", error_messages[regs->isr_number]);
         while (1)
             __asm__("hlt");
     }
 }
 
-void *irqRoutines[16] = {NULL};
-
 void register_irq_handler(const uint8_t irq, void *handler)
 {
-    irqRoutines[irq] = handler;
+    _irq_routines[irq] = handler;
 }
 
 void unregister_irq_handler(const uint8_t irq)
 {
-    irqRoutines[irq] = NULL;
+    _irq_routines[irq] = NULL;
 }
 
 void irq_handler(struct interrupt_registers *reg)
 {
-    void (*handler)(struct interrupt_registers *) = irqRoutines[reg->isrNumber - 32];
+    void (*handler)(struct interrupt_registers *) = _irq_routines[reg->isr_number - 32];
     if (handler) {
         handler(reg);
     }
 
-    if (reg->isrNumber >= 40) {
+    if (reg->isr_number >= 40) {
         outb(0x20, 0xA0);
     }
     outb(0x20, 0x20);

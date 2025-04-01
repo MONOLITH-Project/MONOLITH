@@ -40,8 +40,8 @@
 %endmacro
 
 %macro ISR_NOERRCODE 1
-    global isr%1
-    isr%1:
+    global _isr%1
+    _isr%1:
         push 0
         push %1
         push fs
@@ -49,16 +49,16 @@
 %endmacro
 
 %macro ISR_ERRCODE 1
-    global isr%1
-    isr%1:
+    global _isr%1
+    _isr%1:
         push %1
         push fs
         jmp isr_common_stub
 %endmacro
 
 %macro IRQ 2
-    global irq%1
-    irq%1:
+    global _irq%1
+    _irq%1:
         push 0
         push %2
         push fs

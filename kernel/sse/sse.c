@@ -10,6 +10,7 @@ extern void _init_sse();
 
 void init_sse()
 {
+    debug_log("[*] Enabling SSE instructions...\n");
     _init_sse();
     debug_log("[+] Enabled SSE instructions\n");
 }

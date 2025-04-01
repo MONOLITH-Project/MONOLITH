@@ -75,4 +75,4 @@ void debug_log(const char *message);
  * Sends a formatted message to the debug serial port.
  * Does nothing if the debug serial port is not initialized.
  */
-void debug_logf(const char *format, ...);
+void debug_log_fmt(const char *format, ...);

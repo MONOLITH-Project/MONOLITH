@@ -73,13 +73,12 @@ static struct
     uint64_t reserved3;
     uint16_t reserved4;
     uint16_t iomap_base;
-} __attribute__((packed)) tss = {0};
-
-extern void flush_gdt();
-extern void flush_tss();
+} __attribute__((packed)) _tss = {0};
 
 void init_gdt()
 {
+    debug_log("[*] Initializing the GDT...\n");
+
     // https://wiki.osdev.org/GDT_Tutorial#Flat_/_Long_Mode_Setup
     set_gdt_gate(0, 0, 0, 0, 0);                // Null segment
     set_gdt_gate(1, 0, 0xFFFFFFFF, 0x9A, 0x20); // Code segment
@@ -88,13 +87,15 @@ void init_gdt()
     set_gdt_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xA0); // User mode data segment
 
     // TSS
-    tss.iomap_base = sizeof(tss);
-    load_tss(&tss);
+    _tss.iomap_base = sizeof(_tss);
+    load_tss(&_tss);
 
     gdtr.limit = sizeof(gdt) - 1;
     gdtr.base = (uint64_t) &gdt;
 
+    debug_log("[*] Flushing the GDT...\n");
     flush_gdt();
+    debug_log("[*] Flushing the TSS...\n");
     flush_tss();
     debug_log("[+] GDT initialized\n");
 }
