@@ -124,6 +124,36 @@ static inline void _debug_logd(int d)
     write_string(_debug_port, buffer);
 }
 
+static inline void debug_logx(uint64_t x)
+{
+    char buffer[16];
+    int i = 0;
+
+    if (x == 0) {
+        buffer[i++] = '0';
+    } else {
+        while (x > 0) {
+            uint8_t digit = x % 16;
+            if (digit < 10)
+                buffer[i++] = '0' + digit;
+            else
+                buffer[i++] = 'a' + (digit - 10);
+            x /= 16;
+        }
+    }
+
+    /* Reverse the string */
+    for (int j = 0; j < i / 2; j++) {
+        char tmp = buffer[j];
+        buffer[j] = buffer[i - j - 1];
+        buffer[i - j - 1] = tmp;
+    }
+
+    buffer[i] = '\0';
+
+    write_string(_debug_port, buffer);
+}
+
 void debug_log_fmt(const char *format, ...)
 {
     va_list args;
@@ -145,6 +175,9 @@ void debug_log_fmt(const char *format, ...)
                 break;
             case 'd':
                 _debug_logd(va_arg(args, int));
+                break;
+            case 'x':
+                debug_logx(va_arg(args, uint64_t));
                 break;
             case '%':
                 write_serial(_debug_port, '%');
