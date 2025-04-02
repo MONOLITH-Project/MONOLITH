@@ -27,8 +27,8 @@ C_OBJ := $(patsubst %,$(BUILD_DIR)/%.o,$(C_SRC))
 ALL_OBJ := $(ASM_OBJ) $(C_OBJ)
 
 # Compiler and linker flags
-CFLAGS := -ffreestanding -g -Wall -Wextra -Iinclude -std=c99
-LDFLAGS := -n -T boot/linker.ld
+CFLAGS := -ffreestanding -mno-red-zone -g -Wall -Wextra -Iinclude -std=c99
+LDFLAGS := -n -T boot/linker.ld -nostdlib
 
 .PHONY: all clean toolchain iso run run-debug
 
@@ -67,7 +67,7 @@ $(BUILD_DIR)/%.c.o: %.c | $(BUILD_DIR) toolchain
 
 # Link
 $(KERNEL_BIN): $(ALL_OBJ) | toolchain
-	$(LD) $(LDFLAGS) -o $@ $(ALL_OBJ)
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(ALL_OBJ)
 
 # Create ISO
 $(ISO_FILE): $(KERNEL_BIN) | $(ISO_DIR)/boot/grub
