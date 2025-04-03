@@ -16,6 +16,8 @@ dd 8    ; Size
 header_end:
 
 global start
+global stack_top
+global stack_bottom
 
 section .text
 bits 32
@@ -86,6 +88,7 @@ section .text
 bits 64
 init:
     extern kmain
+    mov rdi, rbx
     call kmain            ; Call kernel main function
     hlt                   ; Halt the CPU
 
@@ -110,5 +113,5 @@ PD_table:                 ; Page Directory table
   resb 4096
 
 stack_bottom:             ; Bottom of stack
-  resb 64
+  resb 8192
 stack_top:                ; Top of stack

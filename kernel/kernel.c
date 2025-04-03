@@ -6,6 +6,8 @@
 #include "gdt/gdt.h"
 #include "idt/idt.h"
 #include "klibc/io.h"
+#include "memory/pmm.h"
+#include "multiboot2.h"
 #include "serial.h"
 #include "sse/sse.h"
 
@@ -28,9 +30,19 @@ void print_hello_world()
     }
 }
 
-void kmain(void)
+void kmain(struct multiboot_tag *multiboot_info)
 {
     start_debug_serial(SERIAL_COM1);
+
+    debug_log("[*] Searching for multiboot mmap tag...\n");
+    struct multiboot_tag_mmap *mmap_info = find_mmap_tag(multiboot_info);
+    if (mmap_info == NULL) {
+        debug_log("[-] Could not find the memory map tag\n");
+        while (1)
+            __asm__("hlt");
+    }
+    init_pmm(mmap_info);
+
     init_sse();
     init_gdt();
     init_idt();

@@ -1,0 +1,186 @@
+/*
+ * Copyright (c) 2025, Ibrahim KAIKAA <ibrahimkaikaa@gmail.com>
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+#include "pmm.h"
+#include "../serial.h"
+#include <stdint.h>
+
+typedef struct
+{
+    size_t num_of_pages;
+} pmm_header_t;
+
+static uint8_t *_bitmap;
+static uint8_t *_bitmap_end;
+static size_t _bitmap_size;
+static size_t _bitmap_page_count;
+static size_t _physical_memory_size = 0;
+extern size_t kernel_end;
+extern size_t stack_top;
+extern size_t stack_bottom;
+
+struct multiboot_tag_mmap *find_mmap_tag(struct multiboot_tag *tag)
+{
+    /* Skip initial 8 bytes (total size + reserved) */
+    struct multiboot_tag *current_tag = (struct multiboot_tag *) (tag + 8);
+
+    while (current_tag->type != MULTIBOOT_TAG_TYPE_END) {
+        if (current_tag->type == MULTIBOOT_TAG_TYPE_MMAP) {
+            return (struct multiboot_tag_mmap *) current_tag;
+        }
+        /* Move to next tag (aligned to 8 bytes) */
+        current_tag = (struct multiboot_tag *) ((uint8_t *) current_tag
+                                                + ((current_tag->size + 7) & ~7));
+    }
+    return NULL;
+}
+
+void init_pmm(struct multiboot_tag_mmap *mmap_tag)
+{
+    debug_log("[*] Initializing PMM\n");
+
+    /* Calculate the physical memory start address and size */
+    int number_of_entries = (mmap_tag->size - sizeof(struct multiboot_tag_mmap))
+                            / mmap_tag->entry_size;
+    for (int i = 0; i < number_of_entries; i++) {
+        struct multiboot_mmap_entry entry = mmap_tag->entries[i];
+        if (entry.type == MULTIBOOT_MEMORY_AVAILABLE && entry.addr >= PHYSICAL_MEMORY_START) {
+            _physical_memory_size += entry.len;
+        }
+    }
+    debug_log_fmt("[*] Found %d MB of physical memory\n", _physical_memory_size / 1048576);
+    debug_log_fmt("[*] Physical memory start: 0x%x\n", PHYSICAL_MEMORY_START);
+
+    size_t kernel_end_addr = (size_t) &kernel_end;
+    _bitmap = (uint8_t *) ((kernel_end_addr + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)); // Align to 4KB
+    _bitmap_page_count = _physical_memory_size / PAGE_SIZE;
+    _bitmap_size = _bitmap_page_count / 8;
+    _bitmap_end = _bitmap + _bitmap_size;
+
+    debug_log_fmt("[*] End of kernel address: 0x%x\n", kernel_end_addr);
+    debug_log_fmt("[*] Stack address range: 0x%x-0x%x\n", &stack_bottom, &stack_top);
+    debug_log_fmt("[*] Bitmap address range: 0x%x-0x%x\n", _bitmap, _bitmap_end);
+    debug_log_fmt("[*] Bitmap page count: %d pages\n", _bitmap_page_count);
+    debug_log_fmt("[*] Bitmap size: %d bytes\n", _bitmap_size);
+
+    debug_log("[*] Initializing the bitmap...\n");
+    for (size_t i = 0; i < _bitmap_size; i++)
+        _bitmap[i] = 0;
+
+    debug_log("[+] PMM initialized\n");
+}
+
+static void _mark_pages_used(size_t start_page, size_t number_of_pages)
+{
+    for (size_t j = start_page; j < start_page + number_of_pages; j++) {
+        size_t byte_idx = j / 8;
+        size_t bit_idx = j % 8;
+        _bitmap[byte_idx] |= (1 << bit_idx);
+    }
+}
+
+static void *_allocate_pages(size_t start_page, size_t number_of_pages)
+{
+    uint64_t base_addr = PHYSICAL_MEMORY_START + start_page * PAGE_SIZE;
+    pmm_header_t *header = (pmm_header_t *) base_addr;
+    header->num_of_pages = number_of_pages;
+    void *data = (void *) (base_addr + sizeof(pmm_header_t));
+    _mark_pages_used(start_page, number_of_pages);
+    debug_log_fmt(
+        "[*] pmm_alloc: Allocated %zu pages at 0x%lx (data at 0x%lx)\n",
+        number_of_pages,
+        base_addr,
+        (uint64_t) data);
+    return data;
+}
+
+static inline void *_process_byte(
+    size_t byte, size_t *free_pages, size_t *start_page, size_t number_of_pages)
+{
+    size_t page_index = byte * 8;
+
+    /* Skip scanning fully free bytes */
+    if (_bitmap[byte] == 0x00) {
+        if (*free_pages == 0) {
+            *start_page = page_index;
+        }
+        *free_pages += 8;
+        if (*free_pages >= number_of_pages) {
+            return _allocate_pages(*start_page, number_of_pages);
+        } else {
+            return NULL;
+        }
+    }
+
+    for (size_t bit = 0; bit < 8 && page_index + bit < _bitmap_page_count; bit++) {
+        size_t i = page_index + bit;
+        uint8_t bit_mask = 1 << bit;
+
+        if (!(_bitmap[byte] & bit_mask)) {
+            if (*free_pages == 0) {
+                *start_page = i;
+            }
+            (*free_pages)++;
+
+            if (*free_pages == number_of_pages) {
+                return _allocate_pages(*start_page, number_of_pages);
+            }
+        } else {
+            *free_pages = 0;
+        }
+    }
+
+    return NULL;
+}
+
+void *pmm_alloc(size_t size)
+{
+    size_t number_of_pages = ((size + sizeof(pmm_header_t)) + PAGE_SIZE - 1) / PAGE_SIZE;
+    size_t current_free_pages = 0;
+    size_t start_page = 0;
+    void *result = NULL;
+
+    for (size_t byte = 0; byte < _bitmap_size; byte++) {
+        /* Skip fully used bytes */
+        if (_bitmap[byte] == 0xFF) {
+            current_free_pages = 0;
+            continue;
+        }
+
+        result = _process_byte(byte, &current_free_pages, &start_page, number_of_pages);
+        if (result) {
+            return result;
+        }
+    }
+
+    debug_log_fmt("[-] pmm_alloc failed: Could not find %zu contiguous pages\n", number_of_pages);
+    return NULL;
+}
+
+void pmm_free(void *ptr)
+{
+    if (ptr == NULL)
+        return;
+
+    uint64_t data_addr = (uint64_t) ptr;
+    uint64_t base_addr = data_addr - sizeof(pmm_header_t);
+    pmm_header_t *header = (pmm_header_t *) base_addr;
+
+    size_t number_of_pages = header->num_of_pages;
+    size_t start_page = (base_addr - PHYSICAL_MEMORY_START) / PAGE_SIZE;
+
+    /* Mark the pages as free */
+    for (size_t i = start_page; i < start_page + number_of_pages; i++) {
+        size_t byte_idx = i / 8;
+        size_t bit_idx = i % 8;
+        _bitmap[byte_idx] &= ~(1 << bit_idx);
+    }
+
+    debug_log_fmt(
+        "[*] pmm_free: Freed %zu pages at 0x%lx (data at 0x%lx)\n",
+        number_of_pages,
+        base_addr,
+        data_addr);
+}
