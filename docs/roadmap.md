@@ -12,13 +12,13 @@
 - [x] IDT Initialization.
 
 ## Basic I/O
-- [ ] Console TTY (with PS/2 keyboard input).
 - [x] Serial port driver.
+- [ ] Serial Console TTY.
+- [ ] VGA Console TTY (with PS/2 keyboard input).
 
 ## Memory Management
-- [ ] Basic memory management.
-  - [ ] Physical memory manager.
-  - [ ] Virtual memory manager.
+- [x] Physical memory manager.
+- [ ] Virtual memory manager.
 - [ ] Heap allocator.
 
 ## Storage
