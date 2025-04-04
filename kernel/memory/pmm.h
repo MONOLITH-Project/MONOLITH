@@ -33,4 +33,4 @@ void *pmm_alloc(size_t);
  * Free a page of physical memory.
  * Does nothing if the parameter is NULL.
  */
-void pmm_free(void *);
+void pmm_free(void *, size_t);

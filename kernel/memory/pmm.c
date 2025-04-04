@@ -7,11 +7,6 @@
 #include "../serial.h"
 #include <stdint.h>
 
-typedef struct
-{
-    size_t num_of_pages;
-} pmm_header_t;
-
 static uint8_t *_bitmap;
 static uint8_t *_bitmap_end;
 static size_t _bitmap_size;
@@ -84,16 +79,9 @@ static void _mark_pages_used(size_t start_page, size_t number_of_pages)
 static void *_allocate_pages(size_t start_page, size_t number_of_pages)
 {
     uint64_t base_addr = PHYSICAL_MEMORY_START + start_page * PAGE_SIZE;
-    pmm_header_t *header = (pmm_header_t *) base_addr;
-    header->num_of_pages = number_of_pages;
-    void *data = (void *) (base_addr + sizeof(pmm_header_t));
     _mark_pages_used(start_page, number_of_pages);
-    debug_log_fmt(
-        "[*] pmm_alloc: Allocated %zu pages at 0x%lx (data at 0x%lx)\n",
-        number_of_pages,
-        base_addr,
-        (uint64_t) data);
-    return data;
+    debug_log_fmt("[*] pmm_alloc: Allocated %d pages at 0x%x\n", number_of_pages, base_addr);
+    return (void *) base_addr;
 }
 
 static inline void *_process_byte(
@@ -137,7 +125,7 @@ static inline void *_process_byte(
 
 void *pmm_alloc(size_t size)
 {
-    size_t number_of_pages = ((size + sizeof(pmm_header_t)) + PAGE_SIZE - 1) / PAGE_SIZE;
+    size_t number_of_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
     size_t current_free_pages = 0;
     size_t start_page = 0;
     void *result = NULL;
@@ -155,32 +143,32 @@ void *pmm_alloc(size_t size)
         }
     }
 
-    debug_log_fmt("[-] pmm_alloc failed: Could not find %zu contiguous pages\n", number_of_pages);
+    debug_log_fmt("[-] pmm_alloc failed: Could not find %d contiguous pages\n", number_of_pages);
     return NULL;
 }
 
-void pmm_free(void *ptr)
+void pmm_free(void *ptr, size_t num_pages)
 {
     if (ptr == NULL)
         return;
 
-    uint64_t data_addr = (uint64_t) ptr;
-    uint64_t base_addr = data_addr - sizeof(pmm_header_t);
-    pmm_header_t *header = (pmm_header_t *) base_addr;
-
-    size_t number_of_pages = header->num_of_pages;
+    uint64_t base_addr = (uint64_t) ptr;
+    if (base_addr % PAGE_SIZE != 0) {
+        debug_log_fmt("[!] pmm_free: Pointer 0x%lx is not page-aligned\n", base_addr);
+        return;
+    }
     size_t start_page = (base_addr - PHYSICAL_MEMORY_START) / PAGE_SIZE;
+    if (start_page + num_pages > _bitmap_page_count) {
+        debug_log_fmt("[!] pmm_free: Freeing %d pages at 0x%x exceeds bitmap\n", num_pages, base_addr);
+        return;
+    }
 
     /* Mark the pages as free */
-    for (size_t i = start_page; i < start_page + number_of_pages; i++) {
+    for (size_t i = start_page; i < start_page + num_pages; i++) {
         size_t byte_idx = i / 8;
         size_t bit_idx = i % 8;
         _bitmap[byte_idx] &= ~(1 << bit_idx);
     }
 
-    debug_log_fmt(
-        "[*] pmm_free: Freed %zu pages at 0x%lx (data at 0x%lx)\n",
-        number_of_pages,
-        base_addr,
-        data_addr);
+    debug_log_fmt("[*] pmm_free: Freed %d pages at 0x%x\n", num_pages, base_addr);
 }
