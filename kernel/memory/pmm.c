@@ -123,9 +123,8 @@ static inline void *_process_byte(
     return NULL;
 }
 
-void *pmm_alloc(size_t size)
+void *pmm_alloc(size_t pages)
 {
-    size_t number_of_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
     size_t current_free_pages = 0;
     size_t start_page = 0;
     void *result = NULL;
@@ -137,17 +136,17 @@ void *pmm_alloc(size_t size)
             continue;
         }
 
-        result = _process_byte(byte, &current_free_pages, &start_page, number_of_pages);
+        result = _process_byte(byte, &current_free_pages, &start_page, pages);
         if (result) {
             return result;
         }
     }
 
-    debug_log_fmt("[-] pmm_alloc failed: Could not find %d contiguous pages\n", number_of_pages);
+    debug_log_fmt("[-] pmm_alloc failed: Could not find %d contiguous pages\n", pages);
     return NULL;
 }
 
-void pmm_free(void *ptr, size_t num_pages)
+void pmm_free(void *ptr, size_t pages)
 {
     if (ptr == NULL)
         return;
@@ -158,17 +157,17 @@ void pmm_free(void *ptr, size_t num_pages)
         return;
     }
     size_t start_page = (base_addr - PHYSICAL_MEMORY_START) / PAGE_SIZE;
-    if (start_page + num_pages > _bitmap_page_count) {
-        debug_log_fmt("[!] pmm_free: Freeing %d pages at 0x%x exceeds bitmap\n", num_pages, base_addr);
+    if (start_page + pages > _bitmap_page_count) {
+        debug_log_fmt("[!] pmm_free: Freeing %d pages at 0x%x exceeds bitmap\n", pages, base_addr);
         return;
     }
 
     /* Mark the pages as free */
-    for (size_t i = start_page; i < start_page + num_pages; i++) {
+    for (size_t i = start_page; i < start_page + pages; i++) {
         size_t byte_idx = i / 8;
         size_t bit_idx = i % 8;
         _bitmap[byte_idx] &= ~(1 << bit_idx);
     }
 
-    debug_log_fmt("[*] pmm_free: Freed %d pages at 0x%x\n", num_pages, base_addr);
+    debug_log_fmt("[*] pmm_free: Freed %d pages at 0x%x\n", pages, base_addr);
 }

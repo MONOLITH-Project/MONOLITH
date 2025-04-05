@@ -24,10 +24,10 @@ struct multiboot_tag_mmap *find_mmap_tag(struct multiboot_tag *);
 void init_pmm(struct multiboot_tag_mmap *);
 
 /*
- * Allocate a free page from physical memory.
+ * Allocate free pages from physical memory.
  * Returns a pointer to the allocated page if successful, otherwise NULL.
  */
-void *pmm_alloc(size_t);
+void *pmm_alloc(size_t pages);
 
 /*
  * Free a page of physical memory.
