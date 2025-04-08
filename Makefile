@@ -6,6 +6,12 @@ CC := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)gcc
 LD := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)ld
 AS := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)as
 
+# Determine grub-mkrescue command to use
+GRUB_MKRESCUE=$(shell command -v grub2-mkrescue)
+ifeq (, $(GRUB_MKRESCUE))
+	GRUB_MKRESCUE=$(shell command -v grub-mkrescue)
+endif
+
 # Directories
 BUILD_DIR := build
 ISO_DIR := $(BUILD_DIR)/isodir
@@ -73,7 +79,7 @@ $(KERNEL_BIN): $(ALL_OBJ) | toolchain
 $(ISO_FILE): $(KERNEL_BIN) | $(ISO_DIR)/boot/grub
 	cp $(KERNEL_BIN) $(ISO_DIR)/boot/kernel.bin
 	cp boot/grub.cfg $(ISO_DIR)/boot/grub/grub.cfg
-	grub2-mkrescue -o $@ $(ISO_DIR)
+	$(GRUB_MKRESCUE) -o $@ $(ISO_DIR)
 
 # Run in QEMU
 run: $(ISO_FILE)
