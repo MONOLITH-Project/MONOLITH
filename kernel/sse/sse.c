@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "sse.h"
-#include "../serial.h"
+#include <kernel/serial.h>
+#include <kernel/sse/sse.h>
 
 extern void _init_sse();
 

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "memory.h"
+#include <kernel/klibc/memory.h>
 
 void *memset(void *dest, int value, size_t count)
 {

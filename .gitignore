@@ -1,3 +1,4 @@
 .cache/
 build/
 toolchain/
+.clangd

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "pmm.h"
-#include "../serial.h"
+#include <kernel/memory/pmm.h>
+#include <kernel/serial.h>
 #include <stdint.h>
 
 static uint8_t *_bitmap;

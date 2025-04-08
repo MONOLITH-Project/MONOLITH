@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "../multiboot2.h"
+#include <kernel/multiboot2.h>
 #include <stddef.h>
 
 #define PAGE_SIZE 4096

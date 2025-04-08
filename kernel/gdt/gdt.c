@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "gdt.h"
-#include "../serial.h"
+#include <kernel/gdt/gdt.h>
+#include <kernel/serial.h>
 
 /*
  * Global Descriptor Table Entry Descriptor.

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "serial.h"
-#include "klibc/io.h"
+#include <kernel/klibc/io.h>
+#include <kernel/serial.h>
 #include <stdarg.h>
 #include <stdint.h>
 

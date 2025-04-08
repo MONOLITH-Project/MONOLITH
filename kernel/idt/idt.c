@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "idt.h"
-#include "../klibc/io.h"
-#include "../klibc/memory.h"
-#include "../serial.h"
+#include <kernel/idt/idt.h>
+#include <kernel/klibc/io.h>
+#include <kernel/klibc/memory.h>
+#include <kernel/serial.h>
 
 struct interrupt_registers
 {

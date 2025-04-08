@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "heap.h"
-#include "../serial.h"
-#include "pmm.h"
+#include <kernel/memory/heap.h>
+#include <kernel/memory/pmm.h>
+#include <kernel/serial.h>
 #include <stdint.h>
 
 typedef struct block_header
