@@ -33,7 +33,7 @@ test: | $(BUILD_DIR)
 # Generate HTML coverage report
 coverage-report: test | $(COVERAGE_DIR)
 	@echo "Generating combined coverage report..."
-	@$(CURDIR)/scripts/generate_coverage_report.sh $(BUILD_DIR) $(COVERAGE_DIR) $(ROOT_DIR)
+	../scripts/generate_coverage_report.sh $(BUILD_DIR) $(COVERAGE_DIR) $(ROOT_DIR)
 
 # Clean build artifacts
 clean:
