@@ -1,0 +1,5 @@
+CompileFlags:
+  Add: [-std=c99, -Wall, -Wextra, -xc, -I../../libs/Unity/src, -I../../]
+
+Index:
+  Background: Build

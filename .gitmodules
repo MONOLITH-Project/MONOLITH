@@ -1,0 +1,4 @@
+[submodule "libs/Unity"]
+	path = libs/Unity
+	url = https://github.com/ThrowTheSwitch/Unity.git
+	shallow = true
