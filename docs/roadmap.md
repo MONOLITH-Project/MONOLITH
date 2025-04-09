@@ -49,6 +49,11 @@
 - [ ] System calls.
 - [ ] IPC.
 
+## Architecture support
+- [x] x86_64.
+- [ ] i386.
+- [ ] aarch64.
+
 ## Hardware Support
 - [ ] ACPI.
 - [ ] PCI.
@@ -57,7 +62,8 @@
 - [ ] AHCI disk driver.
 
 ## Video and Graphics
-- [ ] VESA Video Modes.
+- [ ] VESA Driver.
+- [ ] GOP Driver.
 - [ ] GUI.
 - [ ] Graphics library.
 - [ ] Font rendering.
