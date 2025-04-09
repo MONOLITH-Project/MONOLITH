@@ -1,4 +1,5 @@
 .cache/
 build/
+libs/
 toolchain/
 .clangd
