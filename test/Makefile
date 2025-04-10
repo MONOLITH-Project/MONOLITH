@@ -1,5 +1,3 @@
-# Main Test Makefile for MONOLITH project
-
 # Directories
 ROOT_DIR := $(CURDIR)/..
 BUILD_DIR := $(CURDIR)/build
@@ -23,21 +21,21 @@ $(BUILD_DIR) $(COVERAGE_DIR):
 
 # Main test target - runs all tests in subdirectories
 test: | $(BUILD_DIR)
-	@echo "Running all tests..."
+	@echo "[*] Running all tests..."
 	@for dir in $(TEST_DIRS); do \
-		echo "\nRunning tests in $$dir"; \
+		echo "[*] Running tests in $$dir"; \
 		$(MAKE) -C $$dir; \
 	done
-	@echo "\nAll tests completed"
+	@echo "[+] All tests completed"
 
 # Generate HTML coverage report
 coverage-report: test | $(COVERAGE_DIR)
-	@echo "Generating combined coverage report..."
+	@echo "[*] Generating combined coverage report..."
 	../scripts/generate_coverage_report.sh $(BUILD_DIR) $(COVERAGE_DIR) $(ROOT_DIR)
 
 # Clean build artifacts
 clean:
-	@echo "Cleaning build artifacts..."
+	@echo "[*] Cleaning build artifacts..."
 	@for dir in $(TEST_DIRS); do \
 		$(MAKE) -C $$dir clean; \
 	done

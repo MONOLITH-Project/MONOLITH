@@ -21,22 +21,14 @@ OBJ_DIR := $(BUILD_DIR)/obj
 KERNEL_BIN := $(BUILD_DIR)/kernel.bin
 ISO_FILE := $(BUILD_DIR)/myos.iso
 
-# Find all source files
-BOOT_ASM_SRC := $(shell find boot -name "*.asm" 2>/dev/null)
-KERNEL_ASM_SRC := $(shell find kernel -name "*.asm" 2>/dev/null)
-ASM_SRC := $(BOOT_ASM_SRC) $(KERNEL_ASM_SRC)
-C_SRC := $(shell find kernel -name "*.c" 2>/dev/null)
-
-# Generate object file paths
-ASM_OBJ := $(patsubst %,$(BUILD_DIR)/%.o,$(ASM_SRC))
-C_OBJ := $(patsubst %,$(BUILD_DIR)/%.o,$(C_SRC))
-ALL_OBJ := $(ASM_OBJ) $(C_OBJ)
+# Export variables for submakes
+export BUILD_DIR TOOLCHAIN_BIN
 
 # Compiler and linker flags
 CFLAGS := -ffreestanding -mno-red-zone -g -Wall -Wextra -I./ -std=c99
 LDFLAGS := -n -T boot/linker.ld -nostdlib
 
-.PHONY: all clean toolchain iso run run-debug
+.PHONY: all clean toolchain iso run run-debug kernel boot test
 
 all: $(ISO_FILE)
 
@@ -51,29 +43,30 @@ toolchain:
 
 # Create build directories
 $(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR) $(BUILD_DIR)/obj
 
 $(ISO_DIR)/boot/grub:
 	mkdir -p $(ISO_DIR)/boot/grub
 
-# Create object output directories
-define create_dir
-	@mkdir -p $(dir $@)
-endef
+# Build kernel components
+kernel: toolchain | $(BUILD_DIR)
+	$(MAKE) -C kernel
 
-# Compile assembly
-$(BUILD_DIR)/%.asm.o: %.asm | $(BUILD_DIR)
-	$(create_dir)
-	nasm -f elf64 $< -o $@
+# Build boot components
+boot: toolchain | $(BUILD_DIR)
+	$(MAKE) -C boot
 
-# Compile C files
-$(BUILD_DIR)/%.c.o: %.c | $(BUILD_DIR) toolchain
-	$(create_dir)
-	$(CC) $(CFLAGS) -c $< -o $@
+# Run tests
+test:
+	$(MAKE) -C test/ all
+
+# Generate test coverage report
+coverage-report:
+	$(MAKE) -C test/ coverage-report
 
 # Link
-$(KERNEL_BIN): $(ALL_OBJ) | toolchain
-	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(ALL_OBJ)
+$(KERNEL_BIN): kernel boot | toolchain
+	$(LD) $(LDFLAGS) -o $@ $(shell find $(OBJ_DIR) -type f -name "*.o")
 
 # Create ISO
 $(ISO_FILE): $(KERNEL_BIN) | $(ISO_DIR)/boot/grub
@@ -96,6 +89,8 @@ run-debug-headless: $(ISO_FILE)
 
 # Clean build artifacts but keep toolchain
 clean:
+	$(MAKE) -C kernel clean
+	$(MAKE) -C boot clean
 	rm -rf $(BUILD_DIR)
 
 # Clean everything including toolchain

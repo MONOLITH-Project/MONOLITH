@@ -30,10 +30,10 @@ all: test
 
 test: $(TEST_BINS)
 	@for test in $(TEST_BINS); do \
-		echo "Running $$test..."; \
+		echo "[*] Running $$test..."; \
 		$$test; \
 	done
-	@echo "klibc tests completed"
+	@echo "[+] klibc tests completed"
 
 # Create build directory
 $(BUILD_DIR):
