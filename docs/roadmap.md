@@ -53,6 +53,8 @@
 - [x] x86_64.
 - [ ] i386.
 - [ ] aarch64.
+- [ ] mips.
+- [ ] risc-v.
 
 ## Hardware Support
 - [ ] ACPI.
@@ -112,6 +114,3 @@
   - [ ] umount
   - [ ] chdir
   - [ ] getcwd
-
-## POSIX Compatibility
-_TODO_
