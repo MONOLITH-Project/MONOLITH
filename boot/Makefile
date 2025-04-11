@@ -27,7 +27,7 @@ endef
 # Compile assembly
 $(OBJ_DIR)/boot/%.o: %.asm
 	$(create_dir)
-	nasm -f elf64 $< -o $@
+	$(AS) -f elf64 $< -o $@
 
 clean:
 ifeq ($(findstring pc/,$(ARCH)),pc/)

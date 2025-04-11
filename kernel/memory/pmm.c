@@ -18,8 +18,8 @@ extern size_t stack_bottom;
 
 struct multiboot_tag_mmap *find_mmap_tag(struct multiboot_tag *tag)
 {
-    /* Skip initial 8 bytes (total size + reserved) */
-    struct multiboot_tag *current_tag = (struct multiboot_tag *) (tag + 8);
+    /* The first 8 bytes of the multiboot info are the total size and reserved field */
+    struct multiboot_tag *current_tag = (struct multiboot_tag *) ((uint8_t *) tag + 8);
 
     while (current_tag->type != MULTIBOOT_TAG_TYPE_END) {
         if (current_tag->type == MULTIBOOT_TAG_TYPE_MMAP) {
