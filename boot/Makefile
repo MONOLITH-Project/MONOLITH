@@ -10,7 +10,14 @@ BOOT_OBJ := $(ASM_OBJ)
 
 .PHONY: all clean
 
-all: $(BOOT_OBJ)
+all:
+ifeq ($(findstring pc/,$(ARCH)),pc/)
+	@echo "Building boot files for $(ARCH)"
+	$(MAKE) -C pc
+else
+	@echo "Architecture $(ARCH) not supported"
+	exit 1
+endif
 
 # Create object output directories
 define create_dir
@@ -23,4 +30,7 @@ $(OBJ_DIR)/boot/%.o: %.asm
 	nasm -f elf64 $< -o $@
 
 clean:
+ifeq ($(findstring pc/,$(ARCH)),pc/)
+	$(MAKE) -C pc clean
+endif
 	rm -rf $(ASM_OBJ)

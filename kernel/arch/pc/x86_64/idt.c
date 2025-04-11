@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include <kernel/idt/idt.h>
+#include <kernel/arch/pc/idt.h>
 #include <kernel/klibc/io.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/serial.h>

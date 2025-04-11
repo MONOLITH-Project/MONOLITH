@@ -3,12 +3,28 @@ set -e
 set -u
 
 echo "[*] Starting cross-compiler build process"
+echo "[*] ARCH environment variable: ${ARCH:-not set}"
+
+# Check architecture from environment variable
+if [ "${ARCH:-pc/x86_64}" = "pc/i386" ]; then
+    TARGET=i386-elf
+    ARCH_DIR=i386
+    echo "[*] Building for i386 architecture (ARCH=$ARCH)"
+else
+    TARGET=x86_64-elf
+    ARCH_DIR=x86_64
+    echo "[*] Building for x86_64 architecture (ARCH=${ARCH:-pc/x86_64})"
+fi
+
+# Print debug information
+echo "[DEBUG] TARGET variable set to: $TARGET"
 
 # Configuration variables
-TARGET=x86_64-elf  # Changed to x86_64 architecture
-PREFIX=$(pwd)/toolchain
+PREFIX=$(pwd)/toolchain/$ARCH_DIR
+echo "[*] Installing toolchain to: $PREFIX"
+
 CACHE_DIR=$(pwd)/.cache
-BUILD_DIR=$(pwd)/.cache/toolchain-build
+BUILD_DIR=$(pwd)/.cache/toolchain-build-$TARGET
 JOBS=$(nproc)
 BINUTILS_VERSION="2.44"  # Updated to 2.44
 GCC_VERSION="14.2.0"     # Updated to 14.2.0
@@ -129,6 +145,7 @@ echo "[+] Source archives prepared"
 
 # Build binutils
 echo "[*] Starting binutils build process"
+echo "[DEBUG] Using target: $TARGET for binutils"
 if [ ! -d "binutils-$BINUTILS_VERSION" ]; then
     echo "[*] Extracting binutils source code"
     tar -xf binutils-$BINUTILS_VERSION.tar.gz || { echo "[-] Failed to extract binutils"; exit 1; }
@@ -138,17 +155,18 @@ else
 fi
 
 echo "[*] Creating binutils build directory"
+# Clean existing build directory if it contains files from a previous build for a different architecture
+if [ -d "build-binutils" ] && [ -f "build-binutils/config.status" ]; then
+    echo "[*] Cleaning existing binutils build directory to avoid architecture conflicts"
+    rm -rf "build-binutils"
+fi
 mkdir -p build-binutils
 cd build-binutils
 echo "[+] Now in binutils build directory: $(pwd)"
 
-if [ ! -f "Makefile" ]; then
-    echo "[*] Configuring binutils"
-    ../binutils-$BINUTILS_VERSION/configure --target=$TARGET --prefix=$PREFIX --with-sysroot --disable-nls --disable-werror || { echo "[-] Binutils configuration failed"; exit 1; }
-    echo "[+] Binutils configured successfully"
-else
-    echo "[+] Binutils already configured, using existing configuration"
-fi
+echo "[*] Configuring binutils with target=$TARGET"
+../binutils-$BINUTILS_VERSION/configure --target=$TARGET --prefix=$PREFIX --with-sysroot --disable-nls --disable-werror || { echo "[-] Binutils configuration failed"; exit 1; }
+echo "[+] Binutils configured successfully"
 
 echo "[*] Building binutils (this may take a while)"
 make -j$JOBS || { echo "[-] Binutils build failed"; exit 1; }
@@ -163,6 +181,7 @@ echo "[+] Completed binutils build process"
 
 # Build GCC
 echo "[*] Starting GCC build process"
+echo "[DEBUG] Using target: $TARGET for GCC"
 if [ ! -d "gcc-$GCC_VERSION" ]; then
     echo "[*] Extracting GCC source code"
     tar -xf gcc-$GCC_VERSION.tar.gz || { echo "[-] Failed to extract GCC"; exit 1; }
@@ -177,17 +196,18 @@ export PATH="$PREFIX/bin:$PATH"
 echo "[+] PATH updated: $PATH"
 
 echo "[*] Creating GCC build directory"
+# Clean existing build directory if it contains files from a previous build for a different architecture
+if [ -d "build-gcc" ] && [ -f "build-gcc/config.status" ]; then
+    echo "[*] Cleaning existing GCC build directory to avoid architecture conflicts"
+    rm -rf "build-gcc"
+fi
 mkdir -p build-gcc
 cd build-gcc
 echo "[+] Now in GCC build directory: $(pwd)"
 
-if [ ! -f "Makefile" ]; then
-    echo "[*] Configuring GCC"
-    ../gcc-$GCC_VERSION/configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c,c++ --without-headers || { echo "[-] GCC configuration failed"; exit 1; }
-    echo "[+] GCC configured successfully"
-else
-    echo "[+] GCC already configured, using existing configuration"
-fi
+echo "[*] Configuring GCC with target=$TARGET"
+../gcc-$GCC_VERSION/configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c,c++ --without-headers || { echo "[-] GCC configuration failed"; exit 1; }
+echo "[+] GCC configured successfully"
 
 echo "[*] Building GCC compiler (this may take a long time)"
 make -j$JOBS all-gcc || { echo "[-] GCC compiler build failed"; exit 1; }
@@ -205,9 +225,6 @@ echo "[*] Installing libgcc to $PREFIX"
 make install-target-libgcc || { echo "[-] libgcc installation failed"; exit 1; }
 echo "[+] libgcc installed successfully"
 
-cd ..
-echo "[+] Completed GCC build process"
-
 echo "[+] Cross-compiler has been built successfully!"
 echo "[+] Target: $TARGET"
 echo "[+] Installation directory: $PREFIX"
@@ -217,4 +234,34 @@ echo "    export PATH=\"$PREFIX/bin:\$PATH\""
 echo ""
 echo "[*] You can now compile your kernel with:"
 echo "    $TARGET-gcc -c kernel.c -o kernel.o -ffreestanding -g -Wall -Wextra"
-echo "    $TARGET-ld -o kernel.bin kernel.o -T linker.ld" 
+echo "    $TARGET-ld -o kernel.bin kernel.o -T linker.ld"
+
+function build_binutils {
+    echo "[*] Building binutils"
+    echo "[DEBUG] Using target: $TARGET for binutils"
+    cd "${BUILD_DIR}/binutils-${BINUTILS_VERSION}"
+    mkdir -p build && cd build
+    ../configure --target=$TARGET \
+                 --prefix=$PREFIX \
+                 --with-sysroot \
+                 --disable-nls \
+                 --disable-werror
+    make -j$JOBS
+    make install
+}
+
+function build_gcc {
+    echo "[*] Building GCC"
+    echo "[DEBUG] Using target: $TARGET for GCC"
+    cd "${BUILD_DIR}/gcc-${GCC_VERSION}"
+    mkdir -p build && cd build
+    ../configure --target=$TARGET \
+                 --prefix=$PREFIX \
+                 --disable-nls \
+                 --enable-languages=c,c++ \
+                 --without-headers
+    make -j$JOBS all-gcc
+    make -j$JOBS all-target-libgcc
+    make install-gcc
+    make install-target-libgcc
+} 

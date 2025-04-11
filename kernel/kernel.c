@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include <kernel/gdt/gdt.h>
-#include <kernel/idt/idt.h>
+#include <kernel/arch/pc/gdt.h>
+#include <kernel/arch/pc/idt.h>
+#include <kernel/arch/pc/sse.h>
 #include <kernel/klibc/io.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/multiboot2.h>
 #include <kernel/serial.h>
-#include <kernel/sse/sse.h>
 
 void print_hello_world()
 {

@@ -51,7 +51,7 @@
 
 ## Architecture support
 - [x] x86_64.
-- [ ] i386.
+- [x] i386.
 - [ ] aarch64.
 - [ ] mips.
 - [ ] risc-v.
