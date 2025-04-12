@@ -14,7 +14,11 @@ sudo dnf install gcc gcc-c++ gcc-devel.i686 make bison flex gmp-devel libmpc-dev
 sudo pacman -S base-devel qemu-desktop flex texinfo grub nasm libmpc gmp mpfr libisl flex
 ```
 
-_TODO: Add instructions for other operating systems._
+### Ubuntu / Debian
+
+```console
+sudo apt install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo libisl-dev nasm qemu-system xorriso mtools grub-pc-bin grub-common
+```
 
 ## Clone the repository
 
@@ -66,6 +70,7 @@ Index:
 ```
 
 Add the following to the compiler flags:
+
 ```
 -I/path/to/project/directory/
 ```
