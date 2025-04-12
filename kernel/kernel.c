@@ -10,25 +10,7 @@
 #include <kernel/memory/pmm.h>
 #include <kernel/multiboot2.h>
 #include <kernel/serial.h>
-
-void print_hello_world()
-{
-    const char *str = "Hello, World!";
-    char *vidptr = (char *) 0xb8000;
-    unsigned int i = 0;
-    unsigned int j = 0;
-
-    while (str[j] != '\0') {
-        vidptr[i] = str[j];
-        vidptr[i + 1] = 0x07;
-        ++j;
-        i += 2;
-        outb(0x0E, 0x3D4);
-        outb((j >> 8) & 0xFF, 0x3D5);
-        outb(0x0F, 0x3D4);
-        outb(j & 0xFF, 0x3D5);
-    }
-}
+#include <kernel/video/vga.h>
 
 void kmain(struct multiboot_tag *multiboot_info)
 {
@@ -47,7 +29,10 @@ void kmain(struct multiboot_tag *multiboot_info)
     init_gdt();
     init_idt();
 
-    print_hello_world();
+    vga_clear();
+    vga_set_fg_color(VGA_COLOR_GREEN);
+    vga_puts("Welcome to MONOLITH!\n");
+    vga_puts("Make yourself at home.");
 
     while (1)
         __asm__("hlt");
