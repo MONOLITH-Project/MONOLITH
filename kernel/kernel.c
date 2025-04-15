@@ -34,7 +34,8 @@ void kmain(struct multiboot_tag *multiboot_info)
 
     terminal_t vga_terminal;
     init_vga_terminal(&vga_terminal);
-    kshell_init(&vga_terminal);
+    kshell_init();
+    kshell_launch(&vga_terminal);
 
     while (1)
         __asm__("hlt");

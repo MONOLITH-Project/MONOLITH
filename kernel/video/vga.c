@@ -48,6 +48,13 @@ void vga_putchar(char c)
     case '\r':
         cursor_x = 0;
         break;
+    case '\t':
+        do {
+            VIDEO_MEMORY[2 * (cursor_y * VIDEO_WIDTH + cursor_x)] = ' ';
+            VIDEO_MEMORY[2 * (cursor_y * VIDEO_WIDTH + cursor_x) + 1] = vga_attr;
+            cursor_x++;
+        } while (cursor_x % 8 != 0);
+        break;
     default:
         VIDEO_MEMORY[2 * (cursor_y * VIDEO_WIDTH + cursor_x)] = c;
         VIDEO_MEMORY[2 * (cursor_y * VIDEO_WIDTH + cursor_x) + 1] = vga_attr;
@@ -80,15 +87,18 @@ void vga_clear()
     update_cursor();
 }
 
-void vga_set_bg_color(vga_color_t color) {
+void vga_set_bg_color(vga_color_t color)
+{
     vga_attr = (color << 4) | 0x07;
 }
 
-void vga_set_fg_color(vga_color_t color) {
+void vga_set_fg_color(vga_color_t color)
+{
     vga_attr = (color & 0x0F) | (vga_attr & 0xF0);
 }
 
-void vga_clear_with_color(vga_color_t color) {
+void vga_clear_with_color(vga_color_t color)
+{
     vga_attr = (color << 4) | 0x07;
     for (int i = 0; i < VIDEO_WIDTH * VIDEO_HEIGHT; i++) {
         VIDEO_MEMORY[2 * i] = ' ';

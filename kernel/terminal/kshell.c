@@ -3,13 +3,60 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/klibc/string.h>
 #include <kernel/terminal/kshell.h>
+#include <kernel/terminal/terminal.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
-#define COMMAND_BUFFER_SIZE 256
+static command_desc_t _registered_commands[MAX_REGISTERED_COMMANDS];
+static size_t _registered_commands_count = 0;
 
-void kshell_init(terminal_t *term)
+static void _help(terminal_t *term, int, char **)
+{
+    for (size_t i = 0; i < _registered_commands_count; i++) {
+        term_putc(term, '\n');
+        term_puts(term, _registered_commands[i].name);
+        term_puts(term, "\t");
+        term_puts(term, _registered_commands[i].desc);
+    }
+}
+
+static void _kys(terminal_t *, int, char **)
+{
+    void (*invalid_address)() = (void *) -1;
+    invalid_address();
+}
+
+static void _run_command(terminal_t *term, const char *input)
+{
+    for (size_t i = 0; i < _registered_commands_count; i++) {
+        if (strcmp(_registered_commands[i].name, input) == 0) {
+            /* TODO: parse args */
+            _registered_commands[i].command(term, 0, NULL);
+            return;
+        }
+    }
+    term_puts(term, "\n[-] Command not found!");
+}
+
+void register_kshell_command(const char *name, const char *desc, command_t cmd)
+{
+    _registered_commands[_registered_commands_count++] = (command_desc_t) {
+        .name = name,
+        .desc = desc,
+        .command = cmd,
+    };
+}
+
+void kshell_init()
+{
+    register_kshell_command("help", "Print this", _help);
+    register_kshell_command("kys", "Trigger a kernel panic", _kys);
+}
+
+void kshell_launch(terminal_t *term)
 {
     char input[COMMAND_BUFFER_SIZE];
     size_t length;
@@ -28,9 +75,8 @@ start:
             }
         } else if (c == '\n') {
             if (length > 0) {
-                term_putc(term, c);
                 input[length++] = '\0';
-                term_puts(term, input);
+                _run_command(term, input);
             }
             goto start;
         } else if (length < COMMAND_BUFFER_SIZE - 1) {

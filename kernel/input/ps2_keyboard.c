@@ -14,7 +14,7 @@ static ps2_action_t _key_state[256];
 static bool _capslock_on = false;
 static bool _something_happened = false;
 static ps2_event_t _latest_event;
-static ps2_action_t _latest_action; // Store the derived action
+static ps2_action_t _latest_action;
 
 static void _ps2_irq()
 {
@@ -26,7 +26,9 @@ static void _ps2_irq()
     if (_latest_event.released) {
         _key_state[_latest_event.scancode] = KEYBOARD_RELEASED;
         _latest_action = KEYBOARD_RELEASED;
-    } else if (_key_state[_latest_event.scancode] == KEYBOARD_PRESSED || _key_state[_latest_event.scancode] == KEYBOARD_HOLD) {
+    } else if (
+        _key_state[_latest_event.scancode] == KEYBOARD_PRESSED
+        || _key_state[_latest_event.scancode] == KEYBOARD_HOLD) {
         _key_state[_latest_event.scancode] = KEYBOARD_HOLD;
         _latest_action = KEYBOARD_HOLD;
     } else {
