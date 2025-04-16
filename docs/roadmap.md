@@ -14,7 +14,7 @@
 ## Basic I/O
 - [x] Serial port driver.
 - [ ] Serial Console TTY.
-- [ ] VGA Console TTY (with PS/2 keyboard input).
+- [x] VGA Console TTY (with PS/2 keyboard input).
 
 ## Memory Management
 - [x] Physical memory manager.

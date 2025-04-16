@@ -7,4 +7,7 @@
 
 #include <kernel/terminal/terminal.h>
 
+/*
+ * Initializes a VGA terminal.
+ */
 void vga_init_terminal(terminal_t *term);

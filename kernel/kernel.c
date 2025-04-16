@@ -17,7 +17,6 @@
 
 void kmain(struct multiboot_tag *multiboot_info)
 {
-    kshell_init();
     start_debug_serial(SERIAL_COM1);
 
     debug_log("[*] Searching for multiboot mmap tag...\n");
@@ -35,6 +34,7 @@ void kmain(struct multiboot_tag *multiboot_info)
 
     terminal_t vga_terminal;
     vga_init_terminal(&vga_terminal);
+    kshell_init();
     kshell_launch(&vga_terminal);
 
     while (1)

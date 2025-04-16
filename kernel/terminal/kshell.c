@@ -10,7 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-static command_desc_t _registered_commands[MAX_REGISTERED_COMMANDS];
+static kshell_command_desc_t _registered_commands[KSHELL_COMMANDS_LIMIT];
 static size_t _registered_commands_count = 0;
 
 static void _help(terminal_t *term, int argc, char *argv[])
@@ -62,7 +62,7 @@ static inline void _parse_command(char *command, int *argc, char **argv)
 
 static void _run_command(terminal_t *term, char *input)
 {
-    char *argv[16];
+    char *argv[KSHELL_ARG_SIZE];
     int argc = 0;
 
     _parse_command(input, &argc, argv);
@@ -75,9 +75,9 @@ static void _run_command(terminal_t *term, char *input)
     term_puts(term, "\n[-] Command not found!");
 }
 
-void kshell_register_command(const char *name, const char *desc, command_t cmd)
+void kshell_register_command(const char *name, const char *desc, kshell_command_t cmd)
 {
-    _registered_commands[_registered_commands_count++] = (command_desc_t) {
+    _registered_commands[_registered_commands_count++] = (kshell_command_desc_t) {
         .name = name,
         .desc = desc,
         .command = cmd,
@@ -92,7 +92,7 @@ void kshell_init()
 
 void kshell_launch(terminal_t *term)
 {
-    char input[COMMAND_BUFFER_SIZE];
+    char input[KSHELL_BUFFER_SIZE];
     size_t length;
 start:
     term_puts(term, "\n> ");
@@ -113,7 +113,7 @@ start:
                 _run_command(term, input);
             }
             goto start;
-        } else if (length < COMMAND_BUFFER_SIZE - 1) {
+        } else if (length < KSHELL_BUFFER_SIZE - 1) {
             term_putc(term, c);
             term_flush(term);
             input[length++] = c;

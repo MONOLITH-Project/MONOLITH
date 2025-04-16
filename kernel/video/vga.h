@@ -7,6 +7,9 @@
 
 #include <stdint.h>
 
+/*
+ * VGA text mode color codes.
+ */
 typedef enum : uint8_t {
     VGA_COLOR_BLACK = 0,
     VGA_COLOR_BLUE = 1,

@@ -10,7 +10,7 @@
 void term_putc(terminal_t *term, char c)
 {
     term->buffer[term->index++] = c;
-    if (term->index >= BUFFER_SIZE || c == '\n')
+    if (term->index >= TERM_BUFFER_SIZE || c == '\n')
         term_flush(term);
 }
 
