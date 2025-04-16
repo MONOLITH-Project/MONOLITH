@@ -22,4 +22,4 @@ typedef struct
 
 void kshell_init();
 void kshell_launch(terminal_t *);
-void register_kshell_command(const char *name, const char *desc, command_t);
+void kshell_register_command(const char *name, const char *desc, command_t);

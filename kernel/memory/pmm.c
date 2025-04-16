@@ -43,7 +43,7 @@ struct multiboot_tag_mmap *find_mmap_tag(struct multiboot_tag *tag)
     return NULL;
 }
 
-void init_pmm(struct multiboot_tag_mmap *mmap_tag)
+void pmm_init(struct multiboot_tag_mmap *mmap_tag)
 {
     debug_log("[*] Initializing PMM\n");
 
@@ -75,7 +75,7 @@ void init_pmm(struct multiboot_tag_mmap *mmap_tag)
     for (size_t i = 0; i < _bitmap_size; i++)
         _bitmap[i] = 0;
 
-    register_kshell_command("pmm", "Prints physical memory info", _pmm_info_cmd);
+    kshell_register_command("pmm", "Prints physical memory info", _pmm_info_cmd);
     debug_log("[+] PMM initialized\n");
 }
 

@@ -21,7 +21,7 @@ struct multiboot_tag_mmap *find_mmap_tag(struct multiboot_tag *);
 /*
  * Initialize the Physical Memory Manager.
  */
-void init_pmm(struct multiboot_tag_mmap *);
+void pmm_init(struct multiboot_tag_mmap *);
 
 /*
  * Allocate free pages from physical memory.

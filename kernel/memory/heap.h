@@ -12,7 +12,7 @@
  * Initialize the heap with the specified amount of pages.
  * Returns true if successful, false otherwise.
  */
-bool init_heap(size_t pages);
+bool heap_init(size_t pages);
 
 /*
  * Allocates a block of memory of the specified size.

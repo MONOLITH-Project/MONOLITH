@@ -86,10 +86,9 @@ static const keyboard_layout_t keyboard_layouts[] = {
     },
 };
 
-void init_ps2_keyboard();
-ps2_event_t wait_for_ps2_event();
-bool is_ps2_key_down(ps2_scancode_t);
-bool is_ps2_capslock_on();
-ps2_action_t get_ps2_event_action(ps2_event_t);
-ps2_action_t get_ps2_key_state(ps2_scancode_t);
-ps2_action_t get_latest_action();
+void ps2_init_keyboard();
+ps2_event_t ps2_wait_for_event();
+bool ps2_is_key_down(ps2_scancode_t);
+bool ps2_is_capslock_on();
+ps2_action_t ps2_get_event_action(ps2_event_t);
+ps2_action_t ps2_get_key_state(ps2_scancode_t);

@@ -27,14 +27,14 @@ void kmain(struct multiboot_tag *multiboot_info)
         while (1)
             __asm__("hlt");
     }
-    init_pmm(mmap_info);
+    pmm_init(mmap_info);
 
     init_sse();
     init_gdt();
     init_idt();
 
     terminal_t vga_terminal;
-    init_vga_terminal(&vga_terminal);
+    vga_init_terminal(&vga_terminal);
     kshell_launch(&vga_terminal);
 
     while (1)

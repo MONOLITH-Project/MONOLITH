@@ -37,20 +37,20 @@ static void _ps2_irq()
     }
 }
 
-ps2_action_t get_ps2_event_action(ps2_event_t event)
+ps2_action_t ps2_get_event_action(ps2_event_t event)
 {
-    uint8_t scancode = event.scancode;
-
     if (event.released) {
         return KEYBOARD_RELEASED;
-    } else if (_key_state[scancode] == KEYBOARD_HOLD || _key_state[scancode] == KEYBOARD_PRESSED) {
+    } else if (
+        _key_state[event.scancode] == KEYBOARD_HOLD
+        || _key_state[event.scancode] == KEYBOARD_PRESSED) {
         return KEYBOARD_HOLD;
     } else {
         return KEYBOARD_PRESSED;
     }
 }
 
-ps2_event_t wait_for_ps2_event()
+ps2_event_t ps2_wait_for_event()
 {
     while (!_something_happened)
         __asm__("hlt");
@@ -69,27 +69,22 @@ ps2_event_t wait_for_ps2_event()
     return _latest_event;
 }
 
-bool is_ps2_key_down(ps2_scancode_t scancode)
+bool ps2_is_key_down(ps2_scancode_t scancode)
 {
     return _key_state[scancode] == KEYBOARD_PRESSED || _key_state[scancode] == KEYBOARD_HOLD;
 }
 
-bool is_ps2_capslock_on()
+bool ps2_is_capslock_on()
 {
     return _capslock_on;
 }
 
-ps2_action_t get_ps2_key_state(ps2_scancode_t scancode)
+ps2_action_t ps2_get_key_state(ps2_scancode_t scancode)
 {
     return _key_state[scancode];
 }
 
-ps2_action_t get_latest_action()
-{
-    return _latest_action;
-}
-
-void init_ps2_keyboard()
+void ps2_init_keyboard()
 {
     register_irq_handler(1, _ps2_irq);
     memset(_key_state, KEYBOARD_RELEASED, sizeof(_key_state));

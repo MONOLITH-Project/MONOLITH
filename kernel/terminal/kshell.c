@@ -75,7 +75,7 @@ static void _run_command(terminal_t *term, char *input)
     term_puts(term, "\n[-] Command not found!");
 }
 
-void register_kshell_command(const char *name, const char *desc, command_t cmd)
+void kshell_register_command(const char *name, const char *desc, command_t cmd)
 {
     _registered_commands[_registered_commands_count++] = (command_desc_t) {
         .name = name,
@@ -86,8 +86,8 @@ void register_kshell_command(const char *name, const char *desc, command_t cmd)
 
 void kshell_init()
 {
-    register_kshell_command("help", "Print this", _help);
-    register_kshell_command("kys", "Trigger a kernel panic", _kys);
+    kshell_register_command("help", "Print this", _help);
+    kshell_register_command("kys", "Trigger a kernel panic", _kys);
 }
 
 void kshell_launch(terminal_t *term)

@@ -7,4 +7,4 @@
 
 #include <kernel/terminal/terminal.h>
 
-void init_vga_terminal(terminal_t *term);
+void vga_init_terminal(terminal_t *term);
