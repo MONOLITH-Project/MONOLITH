@@ -17,26 +17,17 @@ static void _help(terminal_t *term, int argc, char *argv[])
 {
     if (argc == 2) {
         for (size_t i = 0; i < _registered_commands_count; i++) {
-            if (strcmp(argv[1], _registered_commands[i].name) == 0) {
-                term_putc(term, '\n');
-                term_puts(term, _registered_commands[i].name);
-                term_puts(term, "\t");
-                term_puts(term, _registered_commands[i].desc);
-                return;
-            }
+            if (strcmp(argv[1], _registered_commands[i].name) != 0)
+                continue;
+            term_printf(term, "\n%s\t%s", _registered_commands[i].name, _registered_commands[i].desc);
+            return;
         }
-        term_puts(term, "\n[-] Error: `");
-        term_puts(term, argv[1]);
-        term_puts(term, "` command not found!");
+        term_printf(term, "\n[-] Error: `%s` command not found!", argv[1]);
     } else if (argc > 2) {
-        term_puts(term, "\n[-] Usage: help [command]");
+        term_printf(term, "\n[-] Usage: %s [command]", argv[0]);
     } else {
-        for (size_t i = 0; i < _registered_commands_count; i++) {
-            term_putc(term, '\n');
-            term_puts(term, _registered_commands[i].name);
-            term_puts(term, "\t");
-            term_puts(term, _registered_commands[i].desc);
-        }
+        for (size_t i = 0; i < _registered_commands_count; i++)
+            term_printf(term, "\n%s\t%s", _registered_commands[i].name, _registered_commands[i].desc);
     }
 }
 

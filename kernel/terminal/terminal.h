@@ -20,6 +20,7 @@ typedef struct terminal
 char term_getc(terminal_t *);
 void term_putc(terminal_t *, char);
 void term_puts(terminal_t *, const char *);
+void term_printf(terminal_t *, const char *, ...);
 void term_flush(terminal_t *);
 
 void term_init(
