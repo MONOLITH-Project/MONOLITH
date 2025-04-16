@@ -41,7 +41,7 @@ static void _add_free_block(void *memory, size_t size)
     }
 }
 
-bool init_heap(size_t pages)
+bool heap_init(size_t pages)
 {
     void *heap_memory = pmm_alloc(pages);
     if (heap_memory == NULL) {

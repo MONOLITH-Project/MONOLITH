@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include "kernel/terminal/terminal.h"
 #include <kernel/memory/pmm.h>
 #include <kernel/serial.h>
+#include <kernel/terminal/kshell.h>
 #include <stdint.h>
 
 static uint8_t *_bitmap;
@@ -12,9 +14,18 @@ static uint8_t *_bitmap_end;
 static size_t _bitmap_size;
 static size_t _bitmap_page_count;
 static size_t _physical_memory_size = 0;
+static size_t _allocated_pages = 0;
 extern size_t kernel_end;
 extern size_t stack_top;
 extern size_t stack_bottom;
+
+static void _pmm_info_cmd(terminal_t *term, int, char **)
+{
+    term_printf(term, "\n[*] Physical memory size: %d MB\n", _physical_memory_size / 1048576);
+    term_printf(term, "[*] Allocated pages: %d\n", _allocated_pages);
+    term_printf(term, "[*] Bitmap size: %d KB\n", _bitmap_size / 1024);
+    term_printf(term, "[*] Bitmap page count: %d", _bitmap_page_count);
+}
 
 struct multiboot_tag_mmap *find_mmap_tag(struct multiboot_tag *tag)
 {
@@ -32,7 +43,7 @@ struct multiboot_tag_mmap *find_mmap_tag(struct multiboot_tag *tag)
     return NULL;
 }
 
-void init_pmm(struct multiboot_tag_mmap *mmap_tag)
+void pmm_init(struct multiboot_tag_mmap *mmap_tag)
 {
     debug_log("[*] Initializing PMM\n");
 
@@ -64,6 +75,7 @@ void init_pmm(struct multiboot_tag_mmap *mmap_tag)
     for (size_t i = 0; i < _bitmap_size; i++)
         _bitmap[i] = 0;
 
+    kshell_register_command("pmm", "Prints physical memory info", _pmm_info_cmd);
     debug_log("[+] PMM initialized\n");
 }
 
@@ -80,6 +92,7 @@ static void *_allocate_pages(size_t start_page, size_t number_of_pages)
 {
     uint64_t base_addr = PHYSICAL_MEMORY_START + start_page * PAGE_SIZE;
     _mark_pages_used(start_page, number_of_pages);
+    _allocated_pages += number_of_pages;
     debug_log_fmt("[*] pmm_alloc: Allocated %d pages at 0x%x\n", number_of_pages, base_addr);
     return (void *) base_addr;
 }
@@ -169,5 +182,6 @@ void pmm_free(void *ptr, size_t pages)
         _bitmap[byte_idx] &= ~(1 << bit_idx);
     }
 
+    _allocated_pages -= pages;
     debug_log_fmt("[*] pmm_free: Freed %d pages at 0x%x\n", pages, base_addr);
 }

@@ -10,10 +10,14 @@
 #include <kernel/memory/pmm.h>
 #include <kernel/multiboot2.h>
 #include <kernel/serial.h>
+#include <kernel/terminal/kshell.h>
+#include <kernel/terminal/terminal.h>
 #include <kernel/video/vga.h>
+#include <kernel/video/vga_terminal.h>
 
 void kmain(struct multiboot_tag *multiboot_info)
 {
+    kshell_init();
     start_debug_serial(SERIAL_COM1);
 
     debug_log("[*] Searching for multiboot mmap tag...\n");
@@ -23,16 +27,15 @@ void kmain(struct multiboot_tag *multiboot_info)
         while (1)
             __asm__("hlt");
     }
-    init_pmm(mmap_info);
+    pmm_init(mmap_info);
 
     init_sse();
     init_gdt();
     init_idt();
 
-    vga_clear();
-    vga_set_fg_color(VGA_COLOR_GREEN);
-    vga_puts("Welcome to MONOLITH!\n");
-    vga_puts("Make yourself at home.");
+    terminal_t vga_terminal;
+    vga_init_terminal(&vga_terminal);
+    kshell_launch(&vga_terminal);
 
     while (1)
         __asm__("hlt");
