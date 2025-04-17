@@ -86,6 +86,6 @@ ps2_action_t ps2_get_key_state(ps2_scancode_t scancode)
 
 void ps2_init_keyboard()
 {
-    register_irq_handler(1, _ps2_irq);
+    irq_register_handler(1, _ps2_irq);
     memset(_key_state, KEYBOARD_RELEASED, sizeof(_key_state));
 }

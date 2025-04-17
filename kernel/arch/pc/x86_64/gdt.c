@@ -75,32 +75,32 @@ static struct
     uint16_t iomap_base;
 } __attribute__((packed)) _tss = {0};
 
-void init_gdt()
+void gdt_init()
 {
     debug_log("[*] Initializing the GDT...\n");
 
     // https://wiki.osdev.org/GDT_Tutorial#Flat_/_Long_Mode_Setup
-    set_gdt_gate(0, 0, 0, 0, 0);                // Null segment
-    set_gdt_gate(1, 0, 0xFFFFFFFF, 0x9A, 0x20); // Code segment
-    set_gdt_gate(2, 0, 0xFFFFFFFF, 0x92, 0xA0); // Data segment
-    set_gdt_gate(3, 0, 0xFFFFFFFF, 0xFA, 0x20); // User mode code segment
-    set_gdt_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xA0); // User mode data segment
+    gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
+    gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0x20); // Code segment
+    gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xA0); // Data segment
+    gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0x20); // User mode code segment
+    gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xA0); // User mode data segment
 
     // TSS
     _tss.iomap_base = sizeof(_tss);
-    load_tss(&_tss);
+    tss_load(&_tss);
 
     gdtr.limit = sizeof(gdt) - 1;
     gdtr.base = (uint64_t) &gdt;
 
     debug_log("[*] Flushing the GDT...\n");
-    flush_gdt();
+    gdt_flush();
     debug_log("[*] Flushing the TSS...\n");
-    flush_tss();
+    tss_flush();
     debug_log("[+] GDT initialized\n");
 }
 
-void set_gdt_gate(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)
+void gdt_set_gate(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)
 {
     gdt.entries[index].base_low = (base & 0xFFFF);
     gdt.entries[index].base_middle = (base >> 16) & 0xFF;
@@ -113,7 +113,7 @@ void set_gdt_gate(int index, uint32_t base, uint32_t limit, uint8_t access, uint
     gdt.entries[index].access = access;
 }
 
-void load_tss(void *tss)
+void tss_load(void *tss)
 {
     const uint64_t addr = (uint64_t) tss;
     gdt.tss.length = sizeof(tss);

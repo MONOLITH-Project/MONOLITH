@@ -10,8 +10,8 @@
 
 extern gdtr
 
-global flush_gdt
-flush_gdt:
+global gdt_flush
+gdt_flush:
     lgdt [gdtr]    ; Remove 'rel' as it's x86_64 specific
     mov eax, .flush      ; Load the offset of flush
     push 0x08            ; Kernel code segment
@@ -26,8 +26,8 @@ flush_gdt:
     mov ss, ax
     ret
 
-global flush_tss
-flush_tss:
+global tss_flush
+tss_flush:
     mov ax, 0x2B
     ltr ax
     ret

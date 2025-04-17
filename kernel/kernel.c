@@ -19,18 +19,10 @@ void kmain(struct multiboot_tag *multiboot_info)
 {
     start_debug_serial(SERIAL_COM1);
 
-    debug_log("[*] Searching for multiboot mmap tag...\n");
-    struct multiboot_tag_mmap *mmap_info = find_mmap_tag(multiboot_info);
-    if (mmap_info == NULL) {
-        debug_log("[-] Could not find the memory map tag\n");
-        while (1)
-            __asm__("hlt");
-    }
-    pmm_init(mmap_info);
-
-    init_sse();
-    init_gdt();
-    init_idt();
+    pmm_init(multiboot_info);
+    sse_init();
+    gdt_init();
+    idt_init();
 
     terminal_t vga_terminal;
     vga_init_terminal(&vga_terminal);

@@ -5,8 +5,8 @@
 
 extern gdtr
 
-global flush_gdt
-flush_gdt:
+global gdt_flush
+gdt_flush:
 	lgdt [rel gdtr]
 	push 8
 	lea rax, [rel .flush]
@@ -21,8 +21,8 @@ flush_gdt:
 	mov ss, ax
 	ret
 
-global flush_tss
-flush_tss:
+global tss_flush
+tss_flush:
 	mov ax, 0x2B
 	ltr ax
 	ret

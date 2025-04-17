@@ -6,11 +6,11 @@
 #include <kernel/arch/pc/sse.h>
 #include <kernel/serial.h>
 
-extern void _init_sse();
+extern void _sse_init();
 
-void init_sse()
+void sse_init()
 {
     debug_log("[*] Enabling SSE instructions...\n");
-    _init_sse();
+    _sse_init();
     debug_log("[+] Enabled SSE instructions\n");
 }

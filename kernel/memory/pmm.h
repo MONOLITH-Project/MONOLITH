@@ -12,16 +12,9 @@
 #define PHYSICAL_MEMORY_START 0x100000
 
 /*
- * Find the memory map tag in the Multiboot info structure.
- * Returns a pointer to the memory map tag if found, otherwise NULL.
- * https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html#Boot-information-format
- */
-struct multiboot_tag_mmap *find_mmap_tag(struct multiboot_tag *);
-
-/*
  * Initialize the Physical Memory Manager.
  */
-void pmm_init(struct multiboot_tag_mmap *);
+void pmm_init(struct multiboot_tag *);
 
 /*
  * Allocate free pages from physical memory.

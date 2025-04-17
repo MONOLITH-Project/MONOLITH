@@ -27,13 +27,21 @@ static void _pmm_info_cmd(terminal_t *term, int, char **)
     term_printf(term, "[*] Bitmap page count: %d", _bitmap_page_count);
 }
 
-struct multiboot_tag_mmap *find_mmap_tag(struct multiboot_tag *tag)
+/*
+ * Find the memory map tag in the Multiboot info structure.
+ * Returns a pointer to the memory map tag if found, otherwise NULL.
+ * https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html#Boot-information-format
+ */
+struct multiboot_tag_mmap *_find_mmap_tag(struct multiboot_tag *tag)
 {
+    debug_log("[*] Searching for multiboot mmap tag...\n");
+
     /* Skip the total size and reserved field */
     struct multiboot_tag *current_tag = (struct multiboot_tag *) ((uint8_t *) tag + 8);
 
     while (current_tag->type != MULTIBOOT_TAG_TYPE_END) {
         if (current_tag->type == MULTIBOOT_TAG_TYPE_MMAP) {
+            debug_log_fmt("[*] Found multiboot mmap tag at 0x%x\n", current_tag);
             return (struct multiboot_tag_mmap *) current_tag;
         }
         /* Move to next tag (aligned to 8 bytes) */
@@ -43,9 +51,16 @@ struct multiboot_tag_mmap *find_mmap_tag(struct multiboot_tag *tag)
     return NULL;
 }
 
-void pmm_init(struct multiboot_tag_mmap *mmap_tag)
+void pmm_init(struct multiboot_tag *multiboot_tag)
 {
     debug_log("[*] Initializing PMM\n");
+
+    struct multiboot_tag_mmap *mmap_tag = _find_mmap_tag(multiboot_tag);
+    if (mmap_tag == NULL) {
+        debug_log("[-] Could not find the memory map tag\n");
+        while (1)
+            __asm__("hlt");
+    }
 
     /* Calculate the physical memory start address and size */
     int number_of_entries = (mmap_tag->size - sizeof(struct multiboot_tag_mmap))

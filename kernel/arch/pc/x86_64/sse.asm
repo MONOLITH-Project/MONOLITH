@@ -3,8 +3,8 @@
 ; SPDX-License-Identifier: GPL-3.0
 ;
 
-global _init_sse
-_init_sse:
+global _sse_init
+_sse_init:
     ; https://wiki.osdev.org/SSE#Adding_support
     mov rax, cr0
     and ax, 0xFFFB

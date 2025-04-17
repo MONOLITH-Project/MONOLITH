@@ -9,4 +9,4 @@
  * Enable SSE instructions.
  * https://wiki.osdev.org/SSE
  */
-void init_sse();
+void sse_init();
