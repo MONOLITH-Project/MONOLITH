@@ -22,9 +22,8 @@ extern size_t stack_bottom;
 static void _pmm_info_cmd(terminal_t *term, int, char **)
 {
     term_printf(term, "\n[*] Physical memory size: %d MB\n", _physical_memory_size / 1048576);
-    term_printf(term, "[*] Allocated pages: %d\n", _allocated_pages);
-    term_printf(term, "[*] Bitmap size: %d KB\n", _bitmap_size / 1024);
-    term_printf(term, "[*] Bitmap page count: %d", _bitmap_page_count);
+    term_printf(term, "[*] Allocated pages: %d pages\n", _allocated_pages);
+    term_printf(term, "[*] Bitmap size: %d bytes", _bitmap_size);
 }
 
 /*
