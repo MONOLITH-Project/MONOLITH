@@ -5,7 +5,7 @@
 ### Fedora / RHEL
 
 ```console
-sudo dnf install gcc gcc-c++ gcc-devel.i686 make bison flex gmp-devel libmpc-devel mpfr-devel texinfo isl-devel qemu-system-x86_64 nasm make grub2-tools-extra
+sudo dnf install gcc gcc-c++ make bison flex gmp-devel libmpc-devel mpfr-devel texinfo isl-devel qemu nasm make grub2-tools-extra xorriso
 ```
 
 ### Arch / Manjaro
