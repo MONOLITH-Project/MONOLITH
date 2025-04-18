@@ -23,6 +23,27 @@ void update_cursor()
     outb((unsigned char) ((position >> 8) & 0xFF), 0x3D5);
 }
 
+void scroll()
+{
+    /* Move everything up by one line */
+    for (int y = 0; y < VIDEO_HEIGHT - 1; y++) {
+        for (int x = 0; x < VIDEO_WIDTH; x++) {
+            int src_idx = 2 * ((y + 1) * VIDEO_WIDTH + x);
+            int dst_idx = 2 * (y * VIDEO_WIDTH + x);
+
+            VIDEO_MEMORY[dst_idx] = VIDEO_MEMORY[src_idx];
+            VIDEO_MEMORY[dst_idx + 1] = VIDEO_MEMORY[src_idx + 1];
+        }
+    }
+
+    /* Clear the bottom line */
+    for (int x = 0; x < VIDEO_WIDTH; x++) {
+        int idx = 2 * ((VIDEO_HEIGHT - 1) * VIDEO_WIDTH + x);
+        VIDEO_MEMORY[idx] = ' ';
+        VIDEO_MEMORY[idx + 1] = vga_attr;
+    }
+}
+
 void vga_putchar(char c)
 {
     switch (c) {
@@ -30,7 +51,8 @@ void vga_putchar(char c)
         cursor_x = 0;
         cursor_y++;
         if (cursor_y >= VIDEO_HEIGHT) {
-            cursor_y = 0;
+            scroll();
+            cursor_y = VIDEO_HEIGHT - 1;
         }
         break;
     case '\b':
@@ -63,7 +85,8 @@ void vga_putchar(char c)
             cursor_x = 0;
             cursor_y++;
             if (cursor_y >= VIDEO_HEIGHT) {
-                cursor_y = 0;
+                scroll();
+                cursor_y = VIDEO_HEIGHT - 1;
             }
         }
     }
