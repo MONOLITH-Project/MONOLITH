@@ -11,3 +11,15 @@ int strcmp(const char *s1, const char *s2)
         ;
     return *(unsigned char *) s1 - *(unsigned char *) s2;
 }
+
+unsigned long atoul(const char *str)
+{
+    unsigned long num = 0;
+    while (*str == ' ' || *str == '\t')
+        str++;
+    while (*str >= '0' && *str <= '9') {
+        num = num * 10 + (*str - '0');
+        str++;
+    }
+    return num;
+}
