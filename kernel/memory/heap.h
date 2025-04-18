@@ -5,8 +5,16 @@
 
 #pragma once
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
+
+typedef struct
+{
+    size_t total_blocks;
+    size_t free_blocks;
+    size_t used_blocks;
+    size_t used_memory;
+} heap_stats_t;
 
 /*
  * Initialize the heap with the specified amount of pages.
@@ -25,3 +33,8 @@ void *kmalloc(size_t size);
  * The pointer parameter must be a pointer previously returned by kmalloc.
  */
 void kfree(void *pointer);
+
+/*
+ * Returns information about the heap.
+ */
+heap_stats_t heap_get_stats(void);

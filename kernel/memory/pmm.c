@@ -19,11 +19,13 @@ extern size_t kernel_end;
 extern size_t stack_top;
 extern size_t stack_bottom;
 
-static void _pmm_info_cmd(terminal_t *term, int, char **)
-{
-    term_printf(term, "\n[*] Physical memory size: %d MB\n", _physical_memory_size / 1048576);
-    term_printf(term, "[*] Allocated pages: %d pages\n", _allocated_pages);
-    term_printf(term, "[*] Bitmap size: %d bytes", _bitmap_size);
+pmm_stats_t pmm_get_stats() {
+    return (pmm_stats_t) {
+        .total_memory = _physical_memory_size,
+        .total_pages = _bitmap_page_count,
+        .used_pages = _allocated_pages,
+        .free_pages = _bitmap_page_count - _allocated_pages,
+    };
 }
 
 /*
@@ -89,7 +91,6 @@ void pmm_init(struct multiboot_tag *multiboot_tag)
     for (size_t i = 0; i < _bitmap_size; i++)
         _bitmap[i] = 0;
 
-    kshell_register_command("pmm", "Prints physical memory info", _pmm_info_cmd);
     debug_log("[+] PMM initialized\n");
 }
 

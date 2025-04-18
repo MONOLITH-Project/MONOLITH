@@ -11,6 +11,19 @@
 #define PAGE_SIZE 4096
 #define PHYSICAL_MEMORY_START 0x100000
 
+typedef struct
+{
+    size_t total_memory;
+    size_t total_pages;
+    size_t free_pages;
+    size_t used_pages;
+} pmm_stats_t;
+
+/*
+ * Returns information about the physical memory.
+ */
+pmm_stats_t pmm_get_stats();
+
 /*
  * Initialize the Physical Memory Manager.
  */
