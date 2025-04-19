@@ -1,7 +1,6 @@
 #include <libs/Unity/src/unity.h>
 
-#undef memset
-#include "kernel/klibc/memory.h"
+#include <kernel/klibc/memory.h>
 
 void setUp(void) {}
 void tearDown(void) {}

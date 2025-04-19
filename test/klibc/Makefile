@@ -20,9 +20,9 @@ TEST_SRCS := $(wildcard $(CURDIR)/*_test.c)
 TEST_OBJS := $(patsubst $(CURDIR)/%.c,$(BUILD_DIR)/%.o,$(TEST_SRCS))
 TEST_BINS := $(patsubst $(CURDIR)/%.c,$(BUILD_DIR)/%.bin,$(TEST_SRCS))
 
-# Kernel files required for these tests
-KLIBC_SRC := $(ROOT_DIR)/kernel/klibc/memory.c
-KLIBC_OBJ := $(BUILD_DIR)/memory.o
+# Auto-find all klibc source files
+KLIBC_SRCS := $(wildcard $(ROOT_DIR)/kernel/klibc/*.c)
+KLIBC_OBJS := $(patsubst $(ROOT_DIR)/kernel/klibc/%.c,$(BUILD_DIR)/%.o,$(KLIBC_SRCS))
 
 .PHONY: all test clean
 
@@ -49,8 +49,8 @@ $(UNITY_OBJ): $(UNITY_SRC) | $(BUILD_DIR)
 	$(ensure_dir)
 	$(CC) $(CFLAGS) $(COVERAGE_FLAGS) -c $< -o $@
 
-# Compile kernel files
-$(KLIBC_OBJ): $(KLIBC_SRC) | $(BUILD_DIR)
+# Compile kernel files (generic rule for all klibc files)
+$(BUILD_DIR)/%.o: $(ROOT_DIR)/kernel/klibc/%.c | $(BUILD_DIR)
 	$(ensure_dir)
 	$(CC) $(CFLAGS) $(COVERAGE_FLAGS) -DTEST_ENV -c $< -o $@
 
@@ -60,7 +60,7 @@ $(BUILD_DIR)/%.o: $(CURDIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(COVERAGE_FLAGS) -c $< -o $@
 
 # Link test executables
-$(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.o $(UNITY_OBJ) $(KLIBC_OBJ) | $(BUILD_DIR)
+$(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.o $(UNITY_OBJ) $(KLIBC_OBJS) | $(BUILD_DIR)
 	$(ensure_dir)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(COVERAGE_FLAGS) -o $@ $^
 
