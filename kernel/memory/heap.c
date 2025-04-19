@@ -14,7 +14,6 @@ typedef struct block_header
     struct block_header *next;
 } block_header_t;
 
-static size_t _total_blocks = 0;
 static size_t _free_blocks = 0;
 static size_t _used_blocks = 0;
 static size_t _used_memory = 0;
@@ -45,7 +44,6 @@ static void _add_free_block(void *memory, size_t size)
         previous->next = new_block;
     }
 
-    _total_blocks++;
     _free_blocks++;
 }
 
@@ -171,6 +169,5 @@ heap_stats_t heap_get_stats()
         .free_blocks = _free_blocks,
         .used_blocks = _used_blocks,
         .used_memory = _used_memory,
-        .total_blocks = _total_blocks,
     };
 }

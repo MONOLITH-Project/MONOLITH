@@ -10,7 +10,6 @@
 
 typedef struct
 {
-    size_t total_blocks;
     size_t free_blocks;
     size_t used_blocks;
     size_t used_memory;
