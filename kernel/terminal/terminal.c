@@ -9,9 +9,17 @@
 
 void term_putc(terminal_t *term, char c)
 {
-    term->buffer[term->index++] = c;
-    if (term->index >= TERM_BUFFER_SIZE || c == '\n')
+    if (c == '\n') {
+        if (term->index >= TERM_BUFFER_SIZE) {
+            term_flush(term);
+        }
+        term->buffer[term->index++] = '\n';
         term_flush(term);
+        return;
+    } else if (term->index >= TERM_BUFFER_SIZE) {
+        term_flush(term);
+    }
+    term->buffer[term->index++] = c;
 }
 
 void term_puts(terminal_t *term, const char *str)
@@ -115,6 +123,8 @@ void term_printf(terminal_t *term, const char *fmt, ...)
         }
         fmt++;
     }
+
+    va_end(args);
 }
 
 char term_getc(terminal_t *term)
@@ -128,8 +138,10 @@ char term_getc(terminal_t *term)
 
 void term_flush(terminal_t *term)
 {
-    term->flush_callback(term);
-    term->index = 0;
+    if (term->index > 0) {
+        term->flush_callback(term);
+        term->index = 0;
+    }
 }
 
 void term_init(
