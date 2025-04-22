@@ -62,7 +62,7 @@ static inline void _term_printd(terminal_t *term, int d)
     term_puts(term, buffer);
 }
 
-static inline void _term_printx(terminal_t *term, uint64_t x)
+static inline void _term_printx(terminal_t *term, size_t x)
 {
     char buffer[16];
     int i = 0;

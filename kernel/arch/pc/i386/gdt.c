@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "kernel/serial.h"
 #include <kernel/arch/pc/gdt.h>
+#include <kernel/serial.h>
 
 /*
  * Global Descriptor Table Entry Descriptor.
@@ -57,8 +57,8 @@ struct
 static struct
 {
     uint32_t prev_tss;
-    uint32_t esp0; // Kernel stack pointer
-    uint32_t ss0;  // Kernel stack segment
+    uint32_t esp0;
+    uint32_t ss0;
     uint32_t esp1;
     uint32_t ss1;
     uint32_t esp2;

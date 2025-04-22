@@ -2,6 +2,7 @@ ENTRY(start)
 OUTPUT_FORMAT(elf32-i386)
 
 SECTIONS {
+    low_mem_buffer = 0x00080000;
     /* Kernel starts at 1MB */
     . = 1M;
 

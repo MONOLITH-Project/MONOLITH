@@ -8,4 +8,4 @@
 /*
  * Initialize memory statistics commands.
  */
-void memstats_init_cmds();
+void memstat_init_cmds();

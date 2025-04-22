@@ -4,7 +4,7 @@
  */
 
 #include <kernel/klibc/io.h>
-#include <kernel/video/vga.h>
+#include <kernel/video/vga/vga.h>
 
 #define VIDEO_MEMORY ((char *) 0xB8000)
 #define VIDEO_WIDTH 80
