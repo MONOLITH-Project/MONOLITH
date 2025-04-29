@@ -70,7 +70,6 @@ bool start_debug_serial(serial_port_t port);
  */
 void debug_log(const char *message);
 
-
 /*
  * Sends a formatted message to the debug serial port.
  * Does nothing if the debug serial port is not initialized.

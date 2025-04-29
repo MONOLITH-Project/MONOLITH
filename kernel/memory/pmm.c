@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "kernel/terminal/terminal.h"
 #include <kernel/memory/pmm.h>
 #include <kernel/serial.h>
 #include <kernel/terminal/kshell.h>
+#include <kernel/terminal/terminal.h>
 #include <stdint.h>
 
 static uint8_t *_bitmap;
@@ -19,7 +19,8 @@ extern size_t kernel_end;
 extern size_t stack_top;
 extern size_t stack_bottom;
 
-pmm_stats_t pmm_get_stats() {
+pmm_stats_t pmm_get_stats()
+{
     return (pmm_stats_t) {
         .total_memory = _physical_memory_size,
         .total_pages = _bitmap_page_count,

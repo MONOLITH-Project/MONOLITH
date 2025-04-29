@@ -4,15 +4,18 @@
 ;
 
 section .multiboot_header
+align 8                      ; Ensure header is 8-byte aligned
 header_start:
 dd 0xE85250D6                ; Multiboot2 magic number
 dd 0                         ; Architecture 0 (protected mode i386)
 dd header_end - header_start ; Header length
 dd 0x100000000 - (0xe85250d6 + 0 + (header_end - header_start))  ; Checksum
 
-dw 0    ; Type
-dw 0    ; Flags
-dd 8    ; Size
+; End tag
+align 8
+dw 0                         ; Type
+dw 0                         ; Flags
+dd 8                         ; Size
 header_end:
 
 global start

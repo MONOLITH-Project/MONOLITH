@@ -65,6 +65,8 @@
 
 ## Video and Graphics
 - [ ] VESA Driver.
+  - [x] i386.
+  - [ ] x86_64.
 - [ ] GOP Driver.
 - [ ] GUI.
 - [ ] Graphics library.

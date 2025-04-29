@@ -2,3 +2,7 @@
 	path = libs/Unity
 	url = https://github.com/ThrowTheSwitch/Unity.git
 	shallow = true
+[submodule "libs/flanterm"]
+	path = libs/flanterm
+	url = https://codeberg.org/mintsuki/flanterm.git
+	shallow = true

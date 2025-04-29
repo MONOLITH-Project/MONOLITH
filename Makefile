@@ -52,13 +52,17 @@ ifeq ($(CPU_ARCH),x86_64)
 endif
 LDFLAGS := -n -T boot/pc/$(CPU_ARCH)/linker.ld -nostdlib
 
-.PHONY: all clean toolchain iso run run-debug kernel boot test
+FLANTERM_SOURCES := libs/flanterm/flanterm.c libs/flanterm/backends/fb.c
+FLANTERM_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(FLANTERM_SOURCES))
+
+.PHONY: all clean toolchain iso run run-debug kernel boot test flanterm
 
 # Default target
 all: | $(BUILD_DIR)
 	$(call check_arch_changed)
 	$(MAKE) kernel
 	$(MAKE) boot
+	$(MAKE) flanterm
 	$(MAKE) $(KERNEL_BIN)
 	$(MAKE) $(ISO_FILE)
 
@@ -86,6 +90,12 @@ kernel: toolchain | $(BUILD_DIR)
 boot: toolchain | $(BUILD_DIR)
 	$(MAKE) -C boot
 
+# Build FlanTerm library
+flanterm: toolchain | $(BUILD_DIR)
+	@mkdir -p $(OBJ_DIR)/libs/flanterm/backends
+	$(CC) $(CFLAGS) -c libs/flanterm/flanterm.c -o $(OBJ_DIR)/libs/flanterm/flanterm.o
+	$(CC) $(CFLAGS) -c libs/flanterm/backends/fb.c -o $(OBJ_DIR)/libs/flanterm/backends/fb.o
+
 # Run tests
 test:
 	$(MAKE) -C test/ all
@@ -95,7 +105,7 @@ coverage-report:
 	$(MAKE) -C test/ coverage-report
 
 # Link
-$(KERNEL_BIN): kernel boot | toolchain
+$(KERNEL_BIN): kernel boot flanterm | toolchain
 	$(LD) $(LDFLAGS) -o $@ $(shell find $(OBJ_DIR) -type f -name "*.o")
 
 # Create ISO

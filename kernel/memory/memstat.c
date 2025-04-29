@@ -5,7 +5,7 @@
 
 #include <kernel/klibc/string.h>
 #include <kernel/memory/heap.h>
-#include <kernel/memory/memstats.h>
+#include <kernel/memory/memstat.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/terminal/kshell.h>
 #include <kernel/terminal/terminal.h>
@@ -70,12 +70,13 @@ static void _alloc(terminal_t *term, int argc, char *argv[])
     term_printf(term, "\n[+] Allocated %s bytes at 0x%x", argv[1], ptr);
 }
 
-static void _memstats_print_stats(terminal_t *term, int, char **)
+static void _memstat_print_stats(terminal_t *term, int, char **)
 {
     pmm_stats_t pmm_info = pmm_get_stats();
     heap_stats_t heap_stats = heap_get_stats();
 
-    term_printf(term, "\n[*] Total physical memory: %d bytes", pmm_info.total_memory);
+    size_t total_memory_mb = pmm_info.total_memory / 1048576;
+    term_printf(term, "\n[*] Total physical memory: %d MB", total_memory_mb);
     term_printf(term, "\n[*] Total physical memory pages: %d pages", pmm_info.total_pages);
     term_printf(term, "\n[*] Free physical memory pages: %d pages", pmm_info.free_pages);
     term_printf(
@@ -89,9 +90,9 @@ static void _memstats_print_stats(terminal_t *term, int, char **)
     term_printf(term, "\n[*] Allocated heap memory: %d bytes", heap_stats.used_memory);
 }
 
-void memstats_init_cmds()
+void memstat_init_cmds()
 {
-    kshell_register_command("memstats", "Show memory statistics", _memstats_print_stats);
+    kshell_register_command("memstat", "Show memory statistics", _memstat_print_stats);
     kshell_register_command("alloc", "Allocate memory", _alloc);
     kshell_register_command("free", "Free memory", _free);
 }

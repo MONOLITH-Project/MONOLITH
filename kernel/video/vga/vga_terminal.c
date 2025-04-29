@@ -4,8 +4,8 @@
  */
 
 #include <kernel/input/ps2_keyboard.h>
-#include <kernel/video/vga.h>
-#include <kernel/video/vga_terminal.h>
+#include <kernel/video/vga/vga.h>
+#include <kernel/video/vga/vga_terminal.h>
 
 static void _vga_flush_callback(terminal_t *term)
 {
@@ -28,11 +28,6 @@ static char _vga_read_callback(terminal_t *)
 
 void vga_init_terminal(terminal_t *term)
 {
-    ps2_init_keyboard();
     term_init(term, _vga_flush_callback, _vga_read_callback);
-
     vga_clear();
-    vga_set_fg_color(VGA_COLOR_GREEN);
-    vga_puts("Welcome to MONOLITH!\nMake yourself at home.");
-    vga_set_fg_color(VGA_COLOR_LIGHT_GREY);
 }
