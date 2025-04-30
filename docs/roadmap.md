@@ -1,10 +1,12 @@
 # Roadmap
 
 ## Branding
+
 - [x] Figure out a name for the project.
 - [ ] Design logo and visual identity.
 
 ## Boot & Initial System Setup
+
 - [x] Build a cross-compiler toolchain.
 - [x] Boot into x86_64.
 - [ ] UEFI support.
@@ -12,16 +14,22 @@
 - [x] IDT Initialization.
 
 ## Basic I/O
+
 - [x] Serial port driver.
 - [ ] Serial Console TTY.
-- [x] VGA Console TTY (with PS/2 keyboard input).
+- [x] VGA Console TTY.
+- [x] PS/2 keyboard driver.
+- [ ] PS/2 Mouse driver.
+- [ ] USB keyboard driver.
 
 ## Memory Management
+
 - [x] Physical memory manager.
 - [ ] Virtual memory manager.
 - [x] Heap allocator.
 
 ## Storage
+
 - [ ] Virtual File System.
 - [ ] ISO9660 filesystem support.
 - [ ] FAT filesystem support.
@@ -36,6 +44,7 @@
   - [ ] Format partitions.
 
 ## CPU & Multiprocessing
+
 - [x] SIMD (SSE, AVX, ...).
 - [ ] APIC.
 - [ ] APIC timer.
@@ -44,19 +53,23 @@
 - [ ] Multi-tasking.
 
 ## User Mode & Process Management
+
 - [ ] User-space.
 - [ ] ELF loader.
 - [ ] System calls.
 - [ ] IPC.
 
 ## Architecture support
+
 - [x] x86_64.
 - [x] i386.
 - [ ] aarch64.
 - [ ] mips.
 - [ ] risc-v.
+- [ ] ppc.
 
 ## Hardware Support
+
 - [ ] ACPI.
 - [ ] PCI.
 - [ ] USB.
@@ -64,9 +77,11 @@
 - [ ] AHCI disk driver.
 
 ## Video and Graphics
+
 - [ ] VESA Driver.
   - [x] i386.
   - [ ] x86_64.
+- [ ] Bochs Display Adapter.
 - [ ] GOP Driver.
 - [ ] GUI.
 - [ ] Graphics library.
@@ -74,6 +89,7 @@
 - [ ] Window manager.
 
 ## Networking
+
 - [ ] Ethernet driver.
 - [ ] TCP/IP stack.
   - [ ] IPv4 implementation.
@@ -87,6 +103,7 @@
 - [ ] TLS/SSL support.
 
 ## Syscalls
+
 - [ ] Process Management
   - [ ] fork
   - [ ] exec
