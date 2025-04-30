@@ -4,6 +4,7 @@
  */
 
 #include <kernel/input/ps2_keyboard.h>
+#include <kernel/memory/heap.h>
 #include <kernel/video/console.h>
 #include <kernel/video/framebuffer/fb_terminal.h>
 #include <libs/flanterm/backends/fb.h>
@@ -35,8 +36,8 @@ static char _fb_read_callback(terminal_t *)
 void fb_init_terminal(terminal_t *term, framebuffer_t *fb)
 {
     _fb_ctx = flanterm_fb_init(
-        NULL,
-        NULL,
+        (void *) kmalloc,
+        (void *) kfree,
         fb->framebuffer,
         fb->width,
         fb->height,
@@ -66,5 +67,5 @@ void fb_init_terminal(terminal_t *term, framebuffer_t *fb)
 
 void fb_destroy_terminal()
 {
-    flanterm_deinit(_fb_ctx, NULL);
+    flanterm_deinit(_fb_ctx, (void *) kfree);
 }

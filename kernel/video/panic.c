@@ -4,6 +4,7 @@
  */
 
 #include <kernel/klibc/string.h>
+#include <kernel/memory/heap.h>
 #include <kernel/serial.h>
 #include <kernel/video/console.h>
 #include <kernel/video/framebuffer/fb_terminal.h>
@@ -60,8 +61,8 @@ void panic(const char *message)
         framebuffer_t fb = console_get_framebuffer();
         fb_destroy_terminal();
         struct flanterm_context *fb_ctx = flanterm_fb_init(
-            NULL,
-            NULL,
+            (void *) kmalloc,
+            (void *) kfree,
             fb.framebuffer,
             fb.width,
             fb.height,
