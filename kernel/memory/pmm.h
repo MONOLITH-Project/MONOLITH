@@ -11,6 +11,17 @@
 #define PAGE_SIZE 4096
 #define PHYSICAL_MEMORY_START 0x100000
 
+#ifdef __x86_64__
+#define KERNEL_VIRTUAL_BASE 0xFFFFFFFF80000000
+#else
+#define KERNEL_VIRTUAL_BASE 0xC0000000
+#endif
+
+#define PHYSICAL_MEMORY_START 0x100000
+
+#define PHYS_TO_VIRT(addr) ((void *) ((uintptr_t) (addr) + KERNEL_VIRTUAL_BASE))
+#define VIRT_TO_PHYS(addr) ((void *) ((uintptr_t) (addr) - KERNEL_VIRTUAL_BASE))
+
 typedef struct
 {
     size_t total_memory;

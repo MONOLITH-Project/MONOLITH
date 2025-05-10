@@ -48,7 +48,7 @@ export BUILD_DIR TOOLCHAIN_BIN TOOLCHAIN_DIR TOOLCHAIN_BASE_DIR ARCH CROSS_PREFI
 CFLAGS := -ffreestanding -g -Wall -Wextra -I./ -std=c99
 CPU_ARCH := $(patsubst pc/%,%,$(ARCH))
 ifeq ($(CPU_ARCH),x86_64)
-	CFLAGS += -mno-red-zone
+	CFLAGS += -mno-red-zone -mcmodel=kernel
 endif
 LDFLAGS := -n -T boot/pc/$(CPU_ARCH)/linker.ld -nostdlib
 

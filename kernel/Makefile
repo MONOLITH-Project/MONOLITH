@@ -33,7 +33,7 @@ KERNEL_OBJ := $(ASM_OBJ) $(C_OBJ) $(ARCH_ASM_OBJ) $(ARCH_C_OBJ) $(ARCH_PC_ASM_OB
 # Compiler flags
 CFLAGS := -ffreestanding -g -Wall -Wextra -I../ -std=c99
 ifeq ($(CPU_ARCH),x86_64)
-    CFLAGS += -mno-red-zone
+    CFLAGS += -mno-red-zone -mcmodel=kernel
 endif
 
 .PHONY: all clean show-info

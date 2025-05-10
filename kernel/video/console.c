@@ -117,8 +117,9 @@ static void _select_vbe_resolution(
             uint16_t mode = vbe_find_mode(info, width, height, 32);
             if (mode != 0xFFFF) {
                 vbe_mode_info_t mode_info = vbe_get_mode_info(mode);
+                /* TODO: map the addrss of the framebuffer dynamicallys */
                 _framebuffer = (framebuffer_t) {
-                    .framebuffer = (uint32_t *) mode_info.framebuffer,
+                    .framebuffer = (uint32_t *) 0xFFC00000,
                     .width = mode_info.width,
                     .height = mode_info.height,
                     .pitch = mode_info.pitch,

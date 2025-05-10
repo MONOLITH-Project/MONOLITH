@@ -1,38 +1,38 @@
 ENTRY(start)
 OUTPUT_FORMAT(elf64-x86-64)
 
+KERNEL_PHYS_BASE = 1M;
+KERNEL_VIRT_BASE = 0xFFFFFFFF80000000;
+
 SECTIONS {
-    /* Kernel starts at 1MB */
-    . = 1M;
+    . = KERNEL_PHYS_BASE;
+
+    .multiboot_header ALIGN(4K): {
+        *(.multiboot_header)
+    }
 
     .boot ALIGN(4K) : {
-        /* ensure that the multiboot header is at the beginning */
-        KEEP(*(.multiboot_header))
-    } :code
+        *(.boot)
+    }
 
-    .text ALIGN(4K) : {
+    . += KERNEL_VIRT_BASE;
+
+    .text ALIGN(4K) : AT(ADDR(.text) - KERNEL_VIRT_BASE) {
         *(.text*)
-    } :code
+    }
 
-    .rodata ALIGN(4K) : {
+    .rodata ALIGN(4K) : AT(ADDR(.rodata) - KERNEL_VIRT_BASE) {
         *(.rodata*)
-        *(.eh_frame)
-    } :rodata
+    }
 
-    .data ALIGN(4K) : {
+    .data ALIGN(4K) : AT(ADDR(.data) - KERNEL_VIRT_BASE) {
         *(.data*)
-    } :data
+    }
 
-    .bss ALIGN(4K) : {
+    .bss ALIGN(4K) : AT(ADDR(.bss) - KERNEL_VIRT_BASE) {
         *(COMMON)
         *(.bss*)
-    } :data
+    }
 
     kernel_end = .;
-}
-
-PHDRS {
-    code PT_LOAD FLAGS(5);    /* R-X */
-    rodata PT_LOAD FLAGS(4);  /* R-- */
-    data PT_LOAD FLAGS(6);    /* RW- */
 }

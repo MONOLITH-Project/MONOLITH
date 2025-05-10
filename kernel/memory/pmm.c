@@ -38,12 +38,13 @@ struct multiboot_tag_mmap *_find_mmap_tag(struct multiboot_tag *tag)
 {
     debug_log("[*] Searching for multiboot mmap tag...\n");
 
-    /* Skip the total size and reserved field */
-    struct multiboot_tag *current_tag = (struct multiboot_tag *) ((uint8_t *) tag + 8);
+    /* Multiboot info is provided in physical address space, but our kernel operates in high memory */
+    /* The tag pointer is already a virtual address (EBX was mapped to high memory) */
+    struct multiboot_tag *current_tag = (struct multiboot_tag *) ((uintptr_t) tag + 8);
 
     while (current_tag->type != MULTIBOOT_TAG_TYPE_END) {
         if (current_tag->type == MULTIBOOT_TAG_TYPE_MMAP) {
-            debug_log_fmt("[*] Found multiboot mmap tag at 0x%x\n", current_tag);
+            debug_log_fmt("[*] Found multiboot mmap tag at 0x%x\n", (uintptr_t) current_tag);
             return (struct multiboot_tag_mmap *) current_tag;
         }
         /* Move to next tag (aligned to 8 bytes) */
@@ -64,11 +65,13 @@ static void _mark_pages_used(size_t start_page, size_t number_of_pages)
 
 static void *_allocate_pages(size_t start_page, size_t number_of_pages)
 {
-    uint64_t base_addr = PHYSICAL_MEMORY_START + start_page * PAGE_SIZE;
+    uint64_t base_phys_addr = PHYSICAL_MEMORY_START + start_page * PAGE_SIZE;
+
     _mark_pages_used(start_page, number_of_pages);
     _allocated_pages += number_of_pages;
-    debug_log_fmt("[*] pmm_alloc: Allocated %d pages at 0x%x\n", number_of_pages, base_addr);
-    return (void *) base_addr;
+    debug_log_fmt("[*] pmm_alloc: Allocated %d pages at phys 0x%x\n", number_of_pages, base_phys_addr);
+
+    return (void *) base_phys_addr;
 }
 
 static inline void *_process_byte(
@@ -124,8 +127,14 @@ void pmm_init(struct multiboot_tag *multiboot_tag)
     /* Calculate the physical memory start address and size */
     int number_of_entries = (mmap_tag->size - sizeof(struct multiboot_tag_mmap))
                             / mmap_tag->entry_size;
+
+    debug_log_fmt("[*] Found %d memory map entries\n", number_of_entries);
+
     for (int i = 0; i < number_of_entries; i++) {
         struct multiboot_mmap_entry entry = mmap_tag->entries[i];
+        debug_log_fmt(
+            "[*] Memory region: addr=0x%x, len=0x%x, type=%d\n", entry.addr, entry.len, entry.type);
+
         if (entry.type == MULTIBOOT_MEMORY_AVAILABLE && entry.addr >= PHYSICAL_MEMORY_START) {
             _physical_memory_size += entry.len;
         }
@@ -139,9 +148,18 @@ void pmm_init(struct multiboot_tag *multiboot_tag)
     _bitmap_size = (_bitmap_page_count + 7) / 8; // Round up division
     _bitmap_end = _bitmap + _bitmap_size;
 
-    debug_log_fmt("[*] End of kernel address: 0x%x\n", kernel_end_addr);
-    debug_log_fmt("[*] Stack address range: 0x%x-0x%x\n", &stack_bottom, &stack_top);
-    debug_log_fmt("[*] Bitmap address range: 0x%x-0x%x\n", _bitmap, _bitmap_end);
+    debug_log_fmt("[*] End of kernel virtual address: 0x%x\n", kernel_end_addr);
+    debug_log_fmt(
+        "[*] End of kernel physical address: 0x%x\n",
+        (uintptr_t) VIRT_TO_PHYS((void *) kernel_end_addr));
+    debug_log_fmt(
+        "[*] Stack virtual address range: 0x%x-0x%x\n",
+        (uintptr_t) &stack_bottom,
+        (uintptr_t) &stack_top);
+    debug_log_fmt(
+        "[*] Bitmap virtual address range: 0x%x-0x%x\n",
+        (uintptr_t) _bitmap,
+        (uintptr_t) _bitmap_end);
     debug_log_fmt("[*] Bitmap page count: %d pages\n", _bitmap_page_count);
     debug_log_fmt("[*] Bitmap size: %d bytes\n", _bitmap_size);
 
@@ -150,17 +168,17 @@ void pmm_init(struct multiboot_tag *multiboot_tag)
         _bitmap[i] = 0;
 
     /* Mark kernel and bitmap pages as used */
-    size_t kernel_start_page = (PHYSICAL_MEMORY_START) / PAGE_SIZE;
-    size_t bitmap_end_page = ((size_t) _bitmap_end + PAGE_SIZE - 1) / PAGE_SIZE;
-    size_t reserved_pages = bitmap_end_page - kernel_start_page;
+    size_t kernel_phys_start = PHYSICAL_MEMORY_START / PAGE_SIZE;
+    size_t bitmap_phys_end = ((uintptr_t) VIRT_TO_PHYS(_bitmap_end) + PAGE_SIZE - 1) / PAGE_SIZE;
+    size_t reserved_pages = bitmap_phys_end - kernel_phys_start;
 
     debug_log_fmt(
-        "[*] Reserving pages %d to %d for kernel and bitmap (%d pages)\n",
-        kernel_start_page,
-        bitmap_end_page - 1,
+        "[*] Reserving physical pages %d to %d for kernel and bitmap (%d pages)\n",
+        kernel_phys_start,
+        bitmap_phys_end - 1,
         reserved_pages);
 
-    _mark_pages_used(kernel_start_page, reserved_pages);
+    _mark_pages_used(kernel_phys_start, reserved_pages);
     _allocated_pages += reserved_pages;
 
     debug_log("[+] PMM initialized\n");
@@ -172,7 +190,9 @@ void *pmm_alloc(size_t pages)
     size_t start_page = 0;
     void *result = NULL;
 
-    size_t bitmap_end_page = ((size_t) _bitmap_end + PAGE_SIZE - 1) / PAGE_SIZE;
+    size_t bitmap_end_phys = (uintptr_t) VIRT_TO_PHYS(_bitmap_end);
+    size_t bitmap_end_page = (bitmap_end_phys + PAGE_SIZE - 1) / PAGE_SIZE;
+
     for (size_t byte = bitmap_end_page / 8; byte < _bitmap_size; byte++) {
         /* Skip fully used bytes */
         if (_bitmap[byte] == 0xFF) {
@@ -197,7 +217,7 @@ void pmm_free(void *ptr, size_t pages)
 
     uint64_t base_addr = (uint64_t) ptr;
     if (base_addr % PAGE_SIZE != 0) {
-        debug_log_fmt("[!] pmm_free: Pointer 0x%lx is not page-aligned\n", base_addr);
+        debug_log_fmt("[!] pmm_free: Pointer 0x%x is not page-aligned\n", base_addr);
         return;
     }
     size_t start_page = (base_addr - PHYSICAL_MEMORY_START) / PAGE_SIZE;

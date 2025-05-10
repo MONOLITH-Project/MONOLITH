@@ -32,7 +32,7 @@ void multiboot_fb_init_terminal(
     terminal_t *term, struct multiboot_tag_framebuffer *tag, framebuffer_t *fb)
 {
     *fb = (framebuffer_t) {
-        .framebuffer = (uint32_t *) tag->common.framebuffer_addr,
+        .framebuffer = (void *) 0xFFC00000,
         .width = tag->common.framebuffer_width,
         .height = tag->common.framebuffer_height,
         .pitch = tag->common.framebuffer_pitch,

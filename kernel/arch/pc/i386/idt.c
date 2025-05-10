@@ -6,6 +6,7 @@
 #include <kernel/arch/pc/idt.h>
 #include <kernel/klibc/io.h>
 #include <kernel/klibc/memory.h>
+#include <kernel/klibc/string.h>
 #include <kernel/serial.h>
 #include <kernel/video/panic.h>
 
@@ -114,7 +115,7 @@ void idt_init()
     debug_log("[*] Initializing the IDT...\n");
 
     _idtr.limit = sizeof(_idt_entries) - 1;
-    _idtr.base = (uint32_t) &_idt_entries;
+    _idtr.base = (size_t) &_idt_entries;
     memset(&_idt_entries, 0, sizeof(_idt_entries));
 
     // Remap the PIC
@@ -242,8 +243,19 @@ void isr_handler(struct interrupt_registers *regs)
 {
     if (regs->isr_number < 32) {
         debug_log_fmt("[-] System panic!\n");
-        debug_log_fmt("[-] Error: %s\n", error_messages[regs->isr_number]);
-        panic(error_messages[regs->isr_number]);
+        if (regs->isr_number == 14) {
+            uintptr_t address;
+            __asm__ volatile("mov %%cr2, %0" : "=r"(address));
+            char buffer[128];
+            strcpy(buffer, "Page fault at 0x");
+            size_t index = strlen("Page fault at 0x");
+            itohex(address, buffer + index);
+            debug_log_fmt("[-] %s\n", buffer);
+            panic(buffer);
+        } else {
+            debug_log_fmt("[-] Error: %s\n", error_messages[regs->isr_number]);
+            panic(error_messages[regs->isr_number]);
+        }
         while (1)
             __asm__("hlt");
     }

@@ -177,7 +177,7 @@ void debug_log_fmt(const char *format, ...)
                 _debug_logd(va_arg(args, int));
                 break;
             case 'x':
-                debug_logx(va_arg(args, uint64_t));
+                debug_logx(va_arg(args, size_t));
                 break;
             case '%':
                 write_serial(_debug_port, '%');

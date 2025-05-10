@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/serial.h>
 #include <kernel/input/ps2_keyboard.h>
 #include <kernel/memory/heap.h>
 #include <kernel/video/console.h>
@@ -35,6 +36,8 @@ static char _fb_read_callback(terminal_t *)
 
 void fb_init_terminal(terminal_t *term, framebuffer_t *fb)
 {
+    debug_log_fmt("[*] Initializing the framebuffer for %dx%d resolution\n", fb->width, fb->height);
+    debug_log_fmt("[*] Framebuffer address: 0x%x\n", fb->framebuffer);
     _fb_ctx = flanterm_fb_init(
         (void *) kmalloc,
         (void *) kfree,

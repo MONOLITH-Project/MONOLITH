@@ -18,15 +18,30 @@ dw 0                         ; Flags
 dd 8                         ; Size
 header_end:
 
-global start
-global stack_top
-global stack_bottom
-
-section .text
+section .boot
 bits 32
 
+align 4096
+PML4_table:                  ; Page Map Level 4 table
+  resb 4096
+PDP_table:                   ; Page Directory Pointer table
+  resb 4096
+PD_table:                    ; Page Directory table
+  resb 4096
+
+gdt64:
+  dq 0                       ; Null descriptor
+.code: equ $ - gdt64
+  dq (1<<44) | (1<<47) | (1<<41) | (1<<43) | (1<<53)  ; Code segment
+.data: equ $ - gdt64
+  dq (1<<44) | (1<<47) | (1<<41)                      ; Data segment
+.pointer:
+  dw $ - gdt64 - 1           ; GDT size
+  dq gdt64                   ; GDT address
+
+global start
 start:
-    mov esp, stack_top       ; Set up stack pointer
+    mov esp, stack_top_32    ; Set up stack pointer
     call init_page_tables    ; Initialize page tables for paging
     call init_paging         ; Enable paging
     lgdt [gdt64.pointer]     ; Load GDT
@@ -39,6 +54,12 @@ start:
     jmp gdt64.code:init      ; Jump to 64-bit code
 
 init_page_tables:
+    ; Initialize all page tables to zero
+    mov edi, PML4_table
+    xor eax, eax
+    mov ecx, 3 * 4096 / 4
+    rep stosd
+
     ; Map first entry of PML4 to PDP
     mov eax, PDP_table
     or  eax, 0b11           ; Present + Writable
@@ -49,8 +70,18 @@ init_page_tables:
     or eax, 0b11            ; Present + Writable
     mov [PDP_table], eax
 
-    mov ecx, 0              ; Counter variable
+    ; Higher half kernel mapping - Map PML4[511] to point to the PDP
+    mov eax, PDP_table
+    or  eax, 0b11           ; Present + Writable
+    mov [PML4_table + 511 * 8], eax  ; Entry 511 (last entry)
 
+    ; Higher half kernel mapping - Map PDP[510] to point to the PD
+    mov eax, PD_table
+    or eax, 0b11            ; Present + Writable
+    mov [PDP_table + 510 * 8], eax   ; Entry 510
+
+    ; Map first few megabytes of physical memory (both for identity and higher half)
+    mov ecx, 0              ; Counter variable
 .map_PD:
     ; Map PD entries to 2MB pages
     mov eax, 0x200000       ; 2MB page size
@@ -87,7 +118,11 @@ init_paging:
 
     ret
 
-section .text
+align 16
+stack_bottom_32:             ; Bottom of stack
+  resb 16384
+stack_top_32:                ; Top of stack
+
 bits 64
 init:
     extern kmain
@@ -95,26 +130,9 @@ init:
     call kmain            ; Call kernel main function
     hlt                   ; Halt the CPU
 
-section .rodata
-gdt64:
-  dq 0                    ; Null descriptor
-.code: equ $ - gdt64
-  dq (1<<44) | (1<<47) | (1<<41) | (1<<43) | (1<<53)  ; Code segment
-.data: equ $ - gdt64
-  dq (1<<44) | (1<<47) | (1<<41)                      ; Data segment
-.pointer:
-  dw $ - gdt64 -1         ; GDT size
-  dq gdt64                ; GDT address
-
 section .bss
-align 4096
-PML4_table:               ; Page Map Level 4 table
-  resb 4096
-PDP_table:                ; Page Directory Pointer table
-  resb 4096
-PD_table:                 ; Page Directory table
-  resb 4096
-
+global stack_top
+global stack_bottom
 stack_bottom:             ; Bottom of stack
   resb 8192
 stack_top:                ; Top of stack

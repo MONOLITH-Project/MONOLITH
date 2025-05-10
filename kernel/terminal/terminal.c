@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/klibc/string.h>
 #include <kernel/terminal/terminal.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -65,30 +66,7 @@ static inline void _term_printd(terminal_t *term, int d)
 static inline void _term_printx(terminal_t *term, size_t x)
 {
     char buffer[16];
-    int i = 0;
-
-    if (x == 0) {
-        buffer[i++] = '0';
-    } else {
-        while (x > 0) {
-            uint8_t digit = x % 16;
-            if (digit < 10)
-                buffer[i++] = '0' + digit;
-            else
-                buffer[i++] = 'a' + (digit - 10);
-            x /= 16;
-        }
-    }
-
-    /* Reverse the string */
-    for (int j = 0; j < i / 2; j++) {
-        char tmp = buffer[j];
-        buffer[j] = buffer[i - j - 1];
-        buffer[i - j - 1] = tmp;
-    }
-
-    buffer[i] = '\0';
-
+    itohex(x, buffer);
     term_puts(term, buffer);
 }
 
