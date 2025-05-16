@@ -31,13 +31,11 @@ section .boot
 bits 32
 global start
 start:
-mov ecx, (initial_page_dir - 0xC0000000)
+    ; Load the Page Directory Table
+    mov ecx, (PDT - 0xC0000000)
     mov cr3, ecx
 
-    mov ecx, cr4
-    or ecx, 0x10
-    mov cr4, ecx
-
+    ; Enable paging
     mov ecx, cr0
     or ecx, 0x80000000
     mov cr0, ecx
@@ -48,28 +46,64 @@ section .text
 higher_half:
 extern kmain
     mov esp, stack_top
-    push ebx                 ; multiboot2 info pointer
+    push ebx                        ; multiboot2 info pointer
     xor ebp, ebp
-    call kmain               ; Call kernel main function
-    hlt                      ; Halt the CPU
+    call kmain                      ; Call kernel main function
+    hlt                             ; Halt the CPU
 
 section .data
 align 4096
-global initial_page_dir
-initial_page_dir:
-    dd 10000011b                 ; Entry 0: Identity map physical 0x00000000
-    times 767 dd 0               ; Entries 1-767: Unmapped
-    dd (0 << 22) | 10000011b     ; Entry 768: Virtual 0xC0000000 -> Physical 0x00000000
-    dd (1 << 22) | 10000011b     ; Entry 769: Virtual 0xC0400000 -> Physical 0x00400000
-    dd (2 << 22) | 10000011b     ; Entry 770: Virtual 0xC0800000 -> Physical 0x00800000
-    dd (3 << 22) | 10000011b     ; Entry 771: Virtual 0xC0C00000 -> Physical 0x00C00000
-    times 251 dd 0               ; Entries 772-1022: Unmapped
-    dd (0xFD000000) | 10000011b  ; Entry 1023: Virtual 0xFFC00000 -> Physical 0xFD000000 (for the framebuffer)
+global PDT
+PDT:                                ; Page Directory Table (4 KB Pages, 1024 entries)
+    dd (PT0 - 0xC0000000) + 0x03    ; Entry 0:          Identity map, Flags=Present,RW
+    times 767 dd 0                  ; Entry 1-767:      Unused
+    dd (PT768 - 0xC0000000) + 0x03  ; Entry 768:        0xC0000000->0x00000000, Flags=Present,RW
+    dd (PT769 - 0xC0000000) + 0x03  ; Entry 769:        0xC0400000->0x00400000, Flags=Present,RW
+    dd (PT770 - 0xC0000000) + 0x03  ; Entry 770:        0xC0800000->0x00800000, Flags=Present,RW
+    dd (PT771 - 0xC0000000) + 0x03  ; Entry 771:        0xC0C00000->0x00C00000, Flags=Present,RW
+    times 251 dd 0                  ; Entry 772-1022:   Unused
+    dd (PT1023 - 0xC0000000) + 0x03 ; Entry 1023:       Framebuffer mapping via PT1023
+PT0:
+    %assign i 0
+    %rep 1024
+        dd (i * 0x1000) | 0x03      ; Present, RW
+        %assign i i+1
+    %endrep
+PT768:
+    %assign i 0
+    %rep 1024
+        dd (i * 0x1000) | 0x03      ; Present, RW
+        %assign i i+1
+    %endrep
+PT769:
+    %assign i 1024
+    %rep 1024
+        dd (i * 0x1000) | 0x03      ; Present, RW
+        %assign i i+1
+    %endrep
+PT770:
+    %assign i 2048
+    %rep 1024
+        dd (i * 0x1000) | 0x03      ; Present, RW
+        %assign i i+1
+    %endrep
+PT771:
+    %assign i 3072
+    %rep 1024
+        dd (i * 0x1000) | 0x03      ; Present, RW
+        %assign i i+1
+    %endrep
+PT1023:
+    %assign i 0
+    %rep 1024
+        dd (0xFD000000 + (i * 0x1000)) | 0x03
+        %assign i i+1
+    %endrep
 
 section .bss
 align 16
 global stack_top
 global stack_bottom
-stack_bottom:                ; Bottom of stack
+stack_bottom:
     resb 16384 * 4
-stack_top:                   ; Top of stack
+stack_top:
