@@ -22,6 +22,7 @@ section .boot
 bits 32
 
 align 4096
+global PML4T
 PML4T:  resb 4096           ; Page Map Level 4
 PDPT:   resb 4096           ; Page Directory Pointer Table (Level 3)
 PDT:    resb 4096           ; Page Directory Table (Level 2)

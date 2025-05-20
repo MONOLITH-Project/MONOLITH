@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include "kernel/memory/vmm.h"
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/serial.h>
@@ -112,6 +113,11 @@ start:
     size_t growth_size = (size + sizeof(block_header_t) + PAGE_SIZE - 1) / PAGE_SIZE;
     void *new_memory = pmm_alloc(growth_size);
     if (new_memory != NULL) {
+        const uintptr_t start_addr = (uintptr_t) new_memory & (~(PAGE_SIZE - 1));
+        const uintptr_t end_addr = start_addr + growth_size * PAGE_SIZE;
+        for (uintptr_t addr = start_addr; addr < end_addr; addr += PAGE_SIZE) {
+            vmm_map(PHYS_TO_VIRT(addr), (void *) addr, 0x03);
+        }
         _add_free_block(new_memory, growth_size * PAGE_SIZE);
         goto start;
     }
