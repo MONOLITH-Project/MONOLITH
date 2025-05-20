@@ -109,10 +109,21 @@ $(KERNEL_BIN): kernel boot flanterm | toolchain
 	$(LD) $(LDFLAGS) -o $@ $(shell find $(OBJ_DIR) -type f -name "*.o")
 
 # Create ISO
-$(ISO_FILE): $(KERNEL_BIN) | $(ISO_DIR)/boot/grub
-	cp $(KERNEL_BIN) $(ISO_DIR)/boot/kernel.bin
-	cp boot/pc/grub.cfg $(ISO_DIR)/boot/grub/grub.cfg
-	$(GRUB_MKRESCUE) -o $@ $(ISO_DIR)
+$(ISO_FILE): $(KERNEL_BIN)
+	make -C libs/limine
+	mkdir -p build/iso/boot/limine
+	cp -v $(KERNEL_BIN) build/iso/boot
+	cp -v boot/pc/limine.conf boot/pc/wallpaper.png libs/limine/limine-bios.sys \
+	    libs/limine/limine-bios-cd.bin libs/limine/limine-uefi-cd.bin \
+		build/iso/boot/limine
+	mkdir -p build/iso/EFI/BOOT
+	cp -v libs/limine/BOOTX64.EFI build/iso/EFI/BOOT
+	cp -v libs/limine/BOOTIA32.EFI build/iso/EFI/BOOT
+	xorriso -as mkisofs -b boot/limine/limine-bios-cd.bin \
+	    -no-emul-boot -boot-load-size 4 -boot-info-table \
+		--efi-boot boot/limine/limine-uefi-cd.bin \
+		--efi-boot-part --efi-boot-image --protective-msdos-label \
+		build/iso/ -o $(ISO_FILE)
 
 # Run in QEMU
 run: all
