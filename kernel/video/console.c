@@ -12,11 +12,11 @@
 #include <kernel/terminal/terminal.h>
 #include <kernel/video/console.h>
 #include <kernel/video/framebuffer/fb_terminal.h>
-#include <kernel/video/framebuffer/multiboot_fb_terminal.h>
 #include <kernel/video/vesa/vesa.h>
 #include <kernel/video/vesa/vesa_structures.h>
 #include <kernel/video/vga/vga.h>
 #include <kernel/video/vga/vga_terminal.h>
+#include <libs/limine/limine.h>
 #include <stdint.h>
 
 static display_mode_t _display_mode = DISPLAY_MODE_UNINITIALIZED;
@@ -144,7 +144,7 @@ static void _select_vbe_resolution(
 }
 #endif
 
-void console_init(struct multiboot_tag *tag)
+void console_init(struct limine_framebuffer_response *fb_response)
 {
     terminal_t terminal;
     ps2_init_keyboard();
@@ -184,8 +184,21 @@ void console_init(struct multiboot_tag *tag)
 
 end:
 #else
-    _display_mode = DISPLAY_MODE_VGA_TEXT;
-    vga_init_terminal(&terminal);
+    _display_mode = DISPLAY_MODE_FRAMEBUFFER;
+    struct limine_framebuffer *fb = fb_response->framebuffers[0];
+    _framebuffer = (framebuffer_t) {
+        .framebuffer = fb->address,
+        .width = fb->width,
+        .height = fb->height,
+        .redmask_shift = fb->red_mask_shift,
+        .greenmask_shift = fb->green_mask_shift,
+        .bluemask_shift = fb->blue_mask_shift,
+        .redmask_size = fb->red_mask_size,
+        .greenmask_size = fb->green_mask_size,
+        .bluemask_size = fb->blue_mask_size,
+        .pitch = fb->pitch,
+    };
+    fb_init_terminal(&terminal, &_framebuffer);
 #endif
     kshell_init();
     memstat_init_cmds();

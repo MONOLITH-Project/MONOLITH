@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <kernel/multiboot2.h>
+#include <libs/limine/limine.h>
 #include <stdint.h>
 
 typedef enum {
@@ -28,6 +28,6 @@ typedef struct
     uint8_t bluemask_shift;
 } framebuffer_t;
 
-void console_init(struct multiboot_tag *tag);
+void console_init(struct limine_framebuffer_response *fb);
 display_mode_t console_get_mode();
 framebuffer_t console_get_framebuffer();

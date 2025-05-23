@@ -31,9 +31,9 @@ ARCH_PC_C_OBJ := $(patsubst %.c,$(OBJ_DIR)/kernel/%.c.o,$(ARCH_PC_C_SRC))
 KERNEL_OBJ := $(ASM_OBJ) $(C_OBJ) $(ARCH_ASM_OBJ) $(ARCH_C_OBJ) $(ARCH_PC_ASM_OBJ) $(ARCH_PC_C_OBJ) $(PANIC_IMG_OBJ)
 
 # Compiler flags
-CFLAGS := -ffreestanding -g -Wall -Wextra -I../ -std=c99
+CFLAGS := -ffreestanding -g -Wall -Wextra -I../ -std=c99 -fno-stack-protector -fno-stack-check -fno-PIC
 ifeq ($(CPU_ARCH),x86_64)
-    CFLAGS += -mno-red-zone
+    CFLAGS += -mno-red-zone -mcmodel=kernel
 endif
 
 .PHONY: all clean show-info

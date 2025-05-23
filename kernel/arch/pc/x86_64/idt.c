@@ -254,7 +254,13 @@ void isr_handler(struct interrupt_registers *regs)
 {
     if (regs->isr_number < 32) {
         debug_log_fmt("[-] System panic!\n");
-        debug_log_fmt("[-] Error: %s\n", error_messages[regs->isr_number]);
+        if (regs->isr_number == 14) {
+            uintptr_t address;
+            __asm__ volatile("mov %%cr2, %0" : "=r"(address));
+            debug_log_fmt("[-] Page fault at 0x%x\n", address);
+        } else {
+            debug_log_fmt("[-] Error: %s\n", error_messages[regs->isr_number]);
+        }
         panic(error_messages[regs->isr_number]);
         while (1)
             __asm__("hlt");
