@@ -7,8 +7,10 @@
 #include <kernel/input/ps2_keyboard.h>
 #include <kernel/klibc/io.h>
 #include <kernel/klibc/memory.h>
-#include <stdbool.h>
-#include <stdint.h>
+
+#define PS2_DATA_PORT 0x60
+#define PS2_STATUS_PORT 0x64
+#define PS2_COMMAND_PORT 0x64
 
 static ps2_action_t _key_state[256];
 static bool _capslock_on = false;
@@ -19,9 +21,9 @@ static ps2_action_t _latest_action;
 static void _ps2_irq()
 {
     _something_happened = true;
-    while ((inb(0x64) & 0x01) == 0)
+    while ((inb(PS2_STATUS_PORT) & 0x01) == 0)
         ;
-    _latest_event = (ps2_event_t) {.raw = inb(0x60)};
+    _latest_event = (ps2_event_t) {.raw = inb(PS2_DATA_PORT)};
 
     if (_latest_event.released) {
         _key_state[_latest_event.scancode] = KEYBOARD_RELEASED;
@@ -60,10 +62,10 @@ ps2_event_t ps2_wait_for_event()
         _capslock_on = !_capslock_on;
 
         /* Toggle Caps Lock LED */
-        outb(0xED, 0x60);
-        while (inb(0x60) != 0xFA)
-            ;
-        outb(0x04, 0x60);
+        outb(0xED, PS2_COMMAND_PORT);
+        while (inb(PS2_STATUS_PORT) & 0x01)
+            inb(PS2_DATA_PORT);
+        outb(0x04, PS2_DATA_PORT);
     }
 
     return _latest_event;
@@ -86,6 +88,8 @@ ps2_action_t ps2_get_key_state(ps2_scancode_t scancode)
 
 void ps2_init_keyboard()
 {
+    while (inb(PS2_STATUS_PORT) & 0x01)
+        inb(PS2_DATA_PORT);
     irq_register_handler(1, _ps2_irq);
     memset(_key_state, KEYBOARD_RELEASED, sizeof(_key_state));
 }
