@@ -9,7 +9,7 @@
 
 - [x] Build a cross-compiler toolchain.
 - [x] Boot into x86_64.
-- [ ] UEFI support.
+- [x] UEFI support.
 - [x] GDT Initialization.
 - [x] IDT Initialization.
 
@@ -17,7 +17,7 @@
 
 - [x] Serial port driver.
 - [ ] Serial Console TTY.
-- [x] VGA Console TTY.
+- [x] Framebuffer Console TTY.
 - [x] PS/2 keyboard driver.
 - [ ] PS/2 Mouse driver.
 - [ ] USB keyboard driver.
@@ -62,7 +62,7 @@
 ## Architecture support
 
 - [x] x86_64.
-- [x] i386.
+- [x] ~~i386.~~ (Deprecated)
 - [ ] aarch64.
 - [ ] mips.
 - [ ] risc-v.
