@@ -47,17 +47,9 @@ define create_dir
 endef
 
 # Compile assembly
-ifeq ($(CPU_ARCH),x86_64)
 $(OBJ_DIR)/kernel/%.asm.o: %.asm
 	$(create_dir)
 	nasm -f elf64 $< -o $@
-else ifeq ($(CPU_ARCH),i386)
-$(OBJ_DIR)/kernel/%.asm.o: %.asm
-	$(create_dir)
-	nasm -f elf32 $< -o $@
-else
-$(error Unsupported CPU architecture: $(CPU_ARCH))
-endif
 
 # Compile C files
 $(OBJ_DIR)/kernel/%.c.o: %.c
@@ -67,13 +59,7 @@ $(OBJ_DIR)/kernel/%.c.o: %.c
 # Generate panic image object file
 $(PANIC_IMG_OBJ): video/panic.raw
 	$(create_dir)
-ifeq ($(CPU_ARCH),x86_64)
 	cd $(CURDIR) && objcopy -I binary -O elf64-x86-64 -B i386:x86-64 --rename-section .data=.rodata,alloc,load,readonly,data,contents --redefine-sym _binary_video_panic_raw_start=panic_start --redefine-sym _binary_video_panic_raw_end=panic_end $< $@
-else ifeq ($(CPU_ARCH),i386)
-	cd $(CURDIR) && objcopy -I binary -O elf32-i386 -B i386 --rename-section .data=.rodata,alloc,load,readonly,data,contents --redefine-sym _binary_video_panic_raw_start=panic_start --redefine-sym _binary_video_panic_raw_end=panic_end $< $@
-else
-	$(error Unsupported CPU architecture: $(CPU_ARCH))
-endif
 
 clean:
 	rm -rf $(ASM_OBJ) $(C_OBJ) $(ARCH_ASM_OBJ) $(ARCH_C_OBJ) $(ARCH_PC_ASM_OBJ) $(ARCH_PC_C_OBJ) $(PANIC_IMG_OBJ)

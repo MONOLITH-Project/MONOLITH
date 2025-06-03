@@ -6,9 +6,6 @@ TOOLCHAIN_BIN := $(TOOLCHAIN_DIR)/bin
 # Architecture settings
 ARCH ?= pc/x86_64
 CROSS_PREFIX := x86_64-elf-
-ifeq ($(ARCH),pc/i386)
-	CROSS_PREFIX := i386-elf-
-endif
 CC := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)gcc
 LD := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)ld
 AS := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)as
@@ -123,32 +120,16 @@ $(ISO_FILE): $(KERNEL_BIN)
 
 # Run in QEMU
 run: all
-ifeq ($(ARCH),pc/i386)
-	qemu-system-i386 -cdrom $(ISO_FILE) -serial stdio
-else
 	qemu-system-x86_64 -cdrom $(ISO_FILE) -serial stdio
-endif
 
 run-headless: all
-ifeq ($(ARCH),pc/i386)
-	qemu-system-i386 -cdrom $(ISO_FILE) -nographic
-else
 	qemu-system-x86_64 -cdrom $(ISO_FILE) -nographic
-endif
 
 run-debug: all
-ifeq ($(ARCH),pc/i386)
-	qemu-system-i386 -cdrom $(ISO_FILE) -serial stdio -s -S
-else
 	qemu-system-x86_64 -cdrom $(ISO_FILE) -serial stdio -s -S
-endif
 
 run-debug-headless: all
-ifeq ($(ARCH),pc/i386)
-	qemu-system-i386 -cdrom $(ISO_FILE) -nographic -s -S
-else
 	qemu-system-x86_64 -cdrom $(ISO_FILE) -nographic -s -S
-endif
 
 # Clean build artifacts but keep toolchain
 clean:

@@ -5,16 +5,10 @@ set -u
 echo "[*] Starting cross-compiler build process"
 echo "[*] ARCH environment variable: ${ARCH:-not set}"
 
-# Check architecture from environment variable
-if [ "${ARCH:-pc/x86_64}" = "pc/i386" ]; then
-    TARGET=i386-elf
-    ARCH_DIR=i386
-    echo "[*] Building for i386 architecture (ARCH=$ARCH)"
-else
-    TARGET=x86_64-elf
-    ARCH_DIR=x86_64
-    echo "[*] Building for x86_64 architecture (ARCH=${ARCH:-pc/x86_64})"
-fi
+# Set target for x86_64 architecture
+TARGET=x86_64-elf
+ARCH_DIR=x86_64
+echo "[*] Building for x86_64 architecture (ARCH=${ARCH:-pc/x86_64})"
 
 # Print debug information
 echo "[DEBUG] TARGET variable set to: $TARGET"
