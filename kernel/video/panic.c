@@ -5,14 +5,9 @@
 
 #include <kernel/klibc/string.h>
 #include <kernel/memory/heap.h>
-#include <kernel/serial.h>
-#include <kernel/video/console.h>
 #include <kernel/video/framebuffer/fb_terminal.h>
 #include <kernel/video/panic.h>
-#include <kernel/video/vga/vga.h>
 #include <libs/flanterm/backends/fb.h>
-#include <libs/flanterm/flanterm.h>
-#include <stdint.h>
 
 #define FLANTERM_IN_FLANTERM
 #include <libs/flanterm/flanterm_private.h>
@@ -52,12 +47,7 @@ extern uint8_t panic_start;
 void panic(const char *message)
 {
     display_mode_t mode = console_get_mode();
-    if (mode == DISPLAY_MODE_VGA_TEXT) {
-        vga_puts("\n[-] Kernel Panic!!!\n");
-        vga_puts("[-] Error: ");
-        vga_puts(message);
-        vga_puts("\n");
-    } else if (mode == DISPLAY_MODE_FRAMEBUFFER) {
+    if (mode == DISPLAY_MODE_FRAMEBUFFER) {
         framebuffer_t fb = console_get_framebuffer();
         fb_destroy_terminal();
         struct flanterm_context *fb_ctx = flanterm_fb_init(

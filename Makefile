@@ -6,9 +6,6 @@ TOOLCHAIN_BIN := $(TOOLCHAIN_DIR)/bin
 # Architecture settings
 ARCH ?= pc/x86_64
 CROSS_PREFIX := x86_64-elf-
-ifeq ($(ARCH),pc/i386)
-	CROSS_PREFIX := i386-elf-
-endif
 CC := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)gcc
 LD := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)ld
 AS := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)as
@@ -45,17 +42,17 @@ ISO_FILE := $(BUILD_DIR)/myos.iso
 export BUILD_DIR TOOLCHAIN_BIN TOOLCHAIN_DIR TOOLCHAIN_BASE_DIR ARCH CROSS_PREFIX CPU_ARCH
 
 # Compiler and linker flags
-CFLAGS := -ffreestanding -g -Wall -Wextra -I./ -std=c99
+CFLAGS := -g -ffreestanding -Wall -Wextra -I./ -std=c99 -fno-stack-protector -fno-stack-check -fno-PIC
 CPU_ARCH := $(patsubst pc/%,%,$(ARCH))
 ifeq ($(CPU_ARCH),x86_64)
-	CFLAGS += -mno-red-zone
+	CFLAGS += -mno-red-zone -mcmodel=kernel
 endif
-LDFLAGS := -n -T boot/pc/$(CPU_ARCH)/linker.ld -nostdlib
+LDFLAGS += -T boot/pc/$(CPU_ARCH)/linker.ld -nostdlib -z max-page-size=0x1000 -static --build-id=none
 
 FLANTERM_SOURCES := libs/flanterm/flanterm.c libs/flanterm/backends/fb.c
 FLANTERM_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(FLANTERM_SOURCES))
 
-.PHONY: all clean toolchain iso run run-debug kernel boot test flanterm
+.PHONY: all clean toolchain iso run run-debug kernel test flanterm
 
 # Default target
 all: | $(BUILD_DIR)
@@ -86,10 +83,6 @@ $(ISO_DIR)/boot/grub:
 kernel: toolchain | $(BUILD_DIR)
 	$(MAKE) -C kernel
 
-# Build boot components
-boot: toolchain | $(BUILD_DIR)
-	$(MAKE) -C boot
-
 # Build FlanTerm library
 flanterm: toolchain | $(BUILD_DIR)
 	@mkdir -p $(OBJ_DIR)/libs/flanterm/backends
@@ -105,7 +98,7 @@ coverage-report:
 	$(MAKE) -C test/ coverage-report
 
 # Link
-$(KERNEL_BIN): kernel boot flanterm | toolchain
+$(KERNEL_BIN): kernel flanterm | toolchain
 	$(LD) $(LDFLAGS) -o $@ $(shell find $(OBJ_DIR) -type f -name "*.o")
 
 # Create ISO
@@ -127,37 +120,20 @@ $(ISO_FILE): $(KERNEL_BIN)
 
 # Run in QEMU
 run: all
-ifeq ($(ARCH),pc/i386)
-	qemu-system-i386 -cdrom $(ISO_FILE) -serial stdio
-else
 	qemu-system-x86_64 -cdrom $(ISO_FILE) -serial stdio
-endif
 
 run-headless: all
-ifeq ($(ARCH),pc/i386)
-	qemu-system-i386 -cdrom $(ISO_FILE) -nographic
-else
 	qemu-system-x86_64 -cdrom $(ISO_FILE) -nographic
-endif
 
 run-debug: all
-ifeq ($(ARCH),pc/i386)
-	qemu-system-i386 -cdrom $(ISO_FILE) -serial stdio -s -S
-else
 	qemu-system-x86_64 -cdrom $(ISO_FILE) -serial stdio -s -S
-endif
 
 run-debug-headless: all
-ifeq ($(ARCH),pc/i386)
-	qemu-system-i386 -cdrom $(ISO_FILE) -nographic -s -S
-else
 	qemu-system-x86_64 -cdrom $(ISO_FILE) -nographic -s -S
-endif
 
 # Clean build artifacts but keep toolchain
 clean:
 	$(MAKE) -C kernel clean
-	$(MAKE) -C boot clean
 	rm -rf $(BUILD_DIR)
 
 # Clean everything including toolchain

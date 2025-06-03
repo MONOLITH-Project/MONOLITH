@@ -33,9 +33,7 @@ static void _help(terminal_t *term, int argc, char *argv[])
 
 static void _kys(terminal_t *, int, char **)
 {
-    float x = 0 / 0;
-    // void (*invalid_address)() = (void *) -1;
-    // invalid_address();
+    volatile float x = 0 / 0;
 }
 
 static inline void _parse_command(char *command, int *argc, char **argv)
