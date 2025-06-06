@@ -24,29 +24,36 @@ SECTIONS
     . = 0xffffffff80000000;
 
     /* Define a section to contain the Limine requests and assign it to its own PHDR */
+    _limine_requests_start = .;
     .limine_requests : {
         KEEP(*(.limine_requests_start))
         KEEP(*(.limine_requests))
         KEEP(*(.limine_requests_end))
     } :limine_requests
+    _limine_requests_end = .;
 
     /* Move to the next memory page for .text */
-    . = ALIGN(CONSTANT(MAXPAGESIZE));
+    . = ALIGN(4K);
 
+    _text_start = .;
     .text : {
         *(.text .text.*)
     } :text
+    _text_end = .;
 
     /* Move to the next memory page for .rodata */
-    . = ALIGN(CONSTANT(MAXPAGESIZE));
+    . = ALIGN(4K);
 
+    _rodata_start = .;
     .rodata : {
         *(.rodata .rodata.*)
     } :rodata
+    _rodata_end = .;
 
     /* Move to the next memory page for .data */
-    . = ALIGN(CONSTANT(MAXPAGESIZE));
+    . = ALIGN(4K);
 
+    _data_start = .;
     .data : {
         *(.data .data.*)
     } :data
@@ -55,10 +62,13 @@ SECTIONS
     /* unnecessary zeros will be written to the binary. */
     /* If you need, for example, .init_array and .fini_array, those should be placed */
     /* above this. */
+    . = ALIGN(8);
     .bss : {
-        *(.bss .bss.*)
         *(COMMON)
+        *(.bss .bss.*)
     } :data
+    . = ALIGN(4K);
+    _data_end = .;
 
     /* Discard .note.* and .eh_frame* since they may cause issues on some hosts. */
     /DISCARD/ : {

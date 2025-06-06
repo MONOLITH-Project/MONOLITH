@@ -31,3 +31,29 @@ unsigned long atoul(const char *str)
     }
     return num;
 }
+
+size_t atox(const char *hex)
+{
+    size_t result = 0;
+
+    // Skip '0x' or '0X' prefix if present
+    if (hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X')) {
+        hex += 2;
+    }
+
+    while (*hex) {
+        result *= 16;
+
+        if (*hex >= '0' && *hex <= '9') {
+            result += *hex - '0';
+        } else if (*hex >= 'a' && *hex <= 'f') {
+            result += *hex - 'a' + 10;
+        } else if (*hex >= 'A' && *hex <= 'F') {
+            result += *hex - 'A' + 10;
+        }
+
+        hex++;
+    }
+
+    return result;
+}

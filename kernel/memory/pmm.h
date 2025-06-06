@@ -5,9 +5,13 @@
 
 #pragma once
 
+#include <libs/limine/limine.h>
 #include <stddef.h>
 
 #define PAGE_SIZE 4096
+
+#define PAGE_UP(x) (((x) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
+#define PAGE_DOWN(x) ((x) & ~(PAGE_SIZE - 1))
 
 typedef struct
 {
@@ -25,7 +29,7 @@ pmm_stats_t pmm_get_stats();
 /*
  * Initialize the Physical Memory Manager.
  */
-void pmm_init();
+void pmm_init(struct limine_memmap_response *);
 
 /*
  * Allocate free pages from physical memory.

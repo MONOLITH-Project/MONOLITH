@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/klibc/io.h>
 #include <kernel/klibc/memory.h>
@@ -254,11 +255,15 @@ void isr_handler(struct interrupt_registers *regs)
 {
     if (regs->isr_number < 32) {
         debug_log_fmt("[-] System panic!\n");
-        if (regs->isr_number == 14) {
-            uintptr_t address;
-            __asm__ volatile("mov %%cr2, %0" : "=r"(address));
+        switch (regs->isr_number) {
+        case 14: { /* Page Fault */
+            uintptr_t address = asm_read_cr2();
             debug_log_fmt("[-] Page fault at 0x%x\n", address);
-        } else {
+        } break;
+        case 13: /* General Protection Fault */
+            debug_log_fmt("[-] General Protection Fault at 0x%x\n", regs->rip);
+            break;
+        default:
             debug_log_fmt("[-] Error: %s\n", error_messages[regs->isr_number]);
         }
         panic(error_messages[regs->isr_number]);

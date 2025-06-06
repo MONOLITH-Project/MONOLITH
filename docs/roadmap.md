@@ -25,7 +25,7 @@
 ## Memory Management
 
 - [x] Physical memory manager.
-- [ ] Virtual memory manager.
+- [x] Virtual memory manager.
 - [x] Heap allocator.
 
 ## Storage
