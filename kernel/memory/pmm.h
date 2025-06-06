@@ -8,7 +8,6 @@
 #include <stddef.h>
 
 #define PAGE_SIZE 4096
-#define PHYSICAL_MEMORY_START 0x100000
 
 typedef struct
 {
