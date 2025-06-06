@@ -13,6 +13,7 @@
 
 static uint8_t *_bitmap;
 static uint8_t *_bitmap_end;
+static void *_phys_memory_start;
 static size_t _bitmap_size;
 static size_t _bitmap_page_count;
 static size_t _physical_memory_size = 0;
@@ -45,7 +46,7 @@ static void _mark_pages_used(size_t start_page, size_t number_of_pages)
 
 static void *_allocate_pages(size_t start_page, size_t number_of_pages)
 {
-    uint64_t base_addr = PHYSICAL_MEMORY_START + start_page * PAGE_SIZE;
+    void *base_addr = _phys_memory_start + start_page * PAGE_SIZE;
     _mark_pages_used(start_page, number_of_pages);
     _allocated_pages += number_of_pages;
     debug_log_fmt("[*] pmm_alloc: Allocated %d pages at 0x%x\n", number_of_pages, base_addr);
@@ -147,14 +148,15 @@ void pmm_init()
         }
     }
     debug_log_fmt("[*] Found %d MB of physical memory\n", _physical_memory_size / 1048576);
-    debug_log_fmt("[*] Physical memory start: 0x%x\n", PHYSICAL_MEMORY_START);
 
     _bitmap = (uint8_t *) biggest->base;
     _bitmap += hhdmreq.response->offset;
     _bitmap_page_count = _physical_memory_size / PAGE_SIZE;
     _bitmap_size = (_bitmap_page_count + 7) / 8; // Round up division
     _bitmap_end = _bitmap + _bitmap_size;
+    _phys_memory_start = _bitmap_end - hhdmreq.response->offset;
 
+    debug_log_fmt("[*] Physical memory start: 0x%x\n", _phys_memory_start);
     debug_log_fmt("[*] End of kernel address: 0x%x\n", kernel_end_addr);
     debug_log_fmt("[*] Bitmap address range: 0x%x-0x%x\n", _bitmap, _bitmap_end);
     debug_log_fmt("[*] Bitmap page count: %d pages\n", _bitmap_page_count);
@@ -195,12 +197,12 @@ void pmm_free(void *ptr, size_t pages)
     if (ptr == NULL)
         return;
 
-    uint64_t base_addr = (uint64_t) ptr;
+    uintptr_t base_addr = (uint64_t) ptr;
     if (base_addr % PAGE_SIZE != 0) {
-        debug_log_fmt("[!] pmm_free: Pointer 0x%lx is not page-aligned\n", base_addr);
+        debug_log_fmt("[!] pmm_free: Pointer 0x%x is not page-aligned\n", base_addr);
         return;
     }
-    size_t start_page = (base_addr - PHYSICAL_MEMORY_START) / PAGE_SIZE;
+    size_t start_page = (base_addr - (uintptr_t) _phys_memory_start) / PAGE_SIZE;
     if (start_page + pages > _bitmap_page_count) {
         debug_log_fmt("[!] pmm_free: Freeing %d pages at 0x%x exceeds bitmap\n", pages, base_addr);
         return;
