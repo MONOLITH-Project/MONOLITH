@@ -5,10 +5,7 @@
 
 #include <kernel/klibc/string.h>
 #include <kernel/terminal/kshell.h>
-#include <kernel/terminal/terminal.h>
 #include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
 
 static kshell_command_desc_t _registered_commands[KSHELL_COMMANDS_LIMIT];
 static size_t _registered_commands_count = 0;
@@ -31,9 +28,10 @@ static void _help(terminal_t *term, int argc, char *argv[])
     }
 }
 
-static void _kys(terminal_t *, int, char **)
+static void _kys(terminal_t *term, int, char **)
 {
-    volatile float x = 0 / 0;
+    char *s = (char *) -1;
+    term_printf(term, s);
 }
 
 static inline void _parse_command(char *command, int *argc, char **argv)

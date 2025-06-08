@@ -4,12 +4,20 @@
  */
 
 #include <kernel/klibc/string.h>
+#include <stdint.h>
 
 int strcmp(const char *s1, const char *s2)
 {
     for (; *s1 == *s2 && *s1; s1++, s2++)
         ;
     return *(unsigned char *) s1 - *(unsigned char *) s2;
+}
+
+char *strcpy(char *dst, const char *src)
+{
+    while ((*dst++ = *src++))
+        ;
+    return dst - 1;
 }
 
 size_t strlen(const char *s)
@@ -56,4 +64,32 @@ size_t atox(const char *hex)
     }
 
     return result;
+}
+
+char *itohex(size_t x, char *buffer)
+{
+    int i = 0;
+
+    if (x == 0) {
+        buffer[i++] = '0';
+    } else {
+        while (x > 0) {
+            uint8_t digit = x % 16;
+            if (digit < 10)
+                buffer[i++] = '0' + digit;
+            else
+                buffer[i++] = 'a' + (digit - 10);
+            x /= 16;
+        }
+    }
+
+    /* Reverse the string */
+    for (int j = 0; j < i / 2; j++) {
+        char tmp = buffer[j];
+        buffer[j] = buffer[i - j - 1];
+        buffer[i - j - 1] = tmp;
+    }
+
+    buffer[i] = '\0';
+    return buffer;
 }

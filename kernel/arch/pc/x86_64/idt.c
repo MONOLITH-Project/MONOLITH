@@ -7,6 +7,7 @@
 #include <kernel/arch/pc/idt.h>
 #include <kernel/klibc/io.h>
 #include <kernel/klibc/memory.h>
+#include <kernel/klibc/string.h>
 #include <kernel/serial.h>
 #include <kernel/video/panic.h>
 
@@ -258,15 +259,26 @@ void isr_handler(struct interrupt_registers *regs)
         switch (regs->isr_number) {
         case 14: { /* Page Fault */
             uintptr_t address = asm_read_cr2();
-            debug_log_fmt("[-] Page fault at 0x%x\n", address);
+            char buffer[128];
+            strcpy(buffer, "Page fault at 0x");
+            size_t index = strlen("Page fault at 0x");
+            itohex(address, buffer + index);
+            debug_log_fmt("[-] %s\n", buffer);
+            panic(buffer);
         } break;
-        case 13: /* General Protection Fault */
-            debug_log_fmt("[-] General Protection Fault at 0x%x\n", regs->rip);
-            break;
+        case 13: { /* General Protection Fault */
+            uintptr_t address = regs->rip;
+            char buffer[128];
+            strcpy(buffer, "General Protection Fault at 0x");
+            size_t index = strlen("General Protection Fault at 0x");
+            itohex(address, buffer + index);
+            debug_log_fmt("[-] %s\n", buffer);
+            panic(buffer);
+        } break;
         default:
+            panic(error_messages[regs->isr_number]);
             debug_log_fmt("[-] Error: %s\n", error_messages[regs->isr_number]);
         }
-        panic(error_messages[regs->isr_number]);
         while (1)
             __asm__("hlt");
     }
