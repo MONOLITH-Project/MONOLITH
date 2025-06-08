@@ -3,13 +3,9 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include <kernel/klibc/memory.h>
 #include <kernel/memory/pmm.h>
+#include <kernel/memory/vmm.h>
 #include <kernel/serial.h>
-#include <kernel/terminal/kshell.h>
-#include <kernel/terminal/terminal.h>
-#include <libs/limine/limine.h>
-#include <stdint.h>
 
 static uint8_t *_bitmap;
 static uint8_t *_bitmap_end;
@@ -18,12 +14,6 @@ static size_t _bitmap_size;
 static size_t _bitmap_page_count;
 static size_t _physical_memory_size = 0;
 static size_t _allocated_pages = 0;
-
-__attribute__((used, section(".limine_requests"))) volatile struct limine_hhdm_request hhdmreq
-    = {.id = LIMINE_HHDM_REQUEST, .revision = 0};
-
-__attribute__((used, section(".limine_requests"))) volatile struct limine_memmap_request mmap_request
-    = {.id = LIMINE_MEMMAP_REQUEST, .revision = 0};
 
 pmm_stats_t pmm_get_stats()
 {
@@ -49,7 +39,6 @@ static void *_allocate_pages(size_t start_page, size_t number_of_pages)
     void *base_addr = _phys_memory_start + start_page * PAGE_SIZE;
     _mark_pages_used(start_page, number_of_pages);
     _allocated_pages += number_of_pages;
-    debug_log_fmt("[*] pmm_alloc: Allocated %d pages at 0x%x\n", number_of_pages, base_addr);
     return (void *) base_addr;
 }
 
@@ -116,11 +105,10 @@ static const char *_get_mmap_type(int t)
     }
 }
 
-void pmm_init()
+void pmm_init(struct limine_memmap_response *mmap_response)
 {
     debug_log("[*] Initializing PMM\n");
 
-    struct limine_memmap_response *mmap_response = mmap_request.response;
     debug_log_fmt("[*] Number of memory map entries: %d\n", mmap_response->entry_count);
 
     /* Calculate the address of the end of kernel and physical memory start address and size */
@@ -149,12 +137,12 @@ void pmm_init()
     }
     debug_log_fmt("[*] Found %d MB of physical memory\n", _physical_memory_size / 1048576);
 
-    _bitmap = (uint8_t *) biggest->base;
-    _bitmap += hhdmreq.response->offset;
+    _bitmap = vmm_get_hhdm_addr((void *) biggest->base);
     _bitmap_page_count = _physical_memory_size / PAGE_SIZE;
     _bitmap_size = (_bitmap_page_count + 7) / 8; // Round up division
     _bitmap_end = _bitmap + _bitmap_size;
-    _phys_memory_start = _bitmap_end - hhdmreq.response->offset;
+    _phys_memory_start = (void *) (((uintptr_t) vmm_get_lhdm_addr(_bitmap_end) + PAGE_SIZE - 1)
+                                   & ~(PAGE_SIZE - 1));
 
     debug_log_fmt("[*] Physical memory start: 0x%x\n", _phys_memory_start);
     debug_log_fmt("[*] End of kernel address: 0x%x\n", kernel_end_addr);
@@ -184,7 +172,7 @@ void *pmm_alloc(size_t pages)
 
         result = _process_byte(byte, &current_free_pages, &start_page, pages);
         if (result) {
-            return result + hhdmreq.response->offset;
+            return result;
         }
     }
 
@@ -216,5 +204,4 @@ void pmm_free(void *ptr, size_t pages)
     }
 
     _allocated_pages -= pages;
-    debug_log_fmt("[*] pmm_free: Freed %d pages at 0x%x\n", pages, base_addr);
 }

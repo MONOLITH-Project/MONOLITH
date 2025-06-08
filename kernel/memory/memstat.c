@@ -10,35 +10,6 @@
 #include <kernel/terminal/kshell.h>
 #include <kernel/terminal/terminal.h>
 
-/*
- * Converts a hexadecimal string to a long integer
- */
-static size_t atox(const char *hex)
-{
-    size_t result = 0;
-
-    // Skip '0x' or '0X' prefix if present
-    if (hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X')) {
-        hex += 2;
-    }
-
-    while (*hex) {
-        result *= 16;
-
-        if (*hex >= '0' && *hex <= '9') {
-            result += *hex - '0';
-        } else if (*hex >= 'a' && *hex <= 'f') {
-            result += *hex - 'a' + 10;
-        } else if (*hex >= 'A' && *hex <= 'F') {
-            result += *hex - 'A' + 10;
-        }
-
-        hex++;
-    }
-
-    return result;
-}
-
 static void _free(terminal_t *term, int argc, char *argv[])
 {
     if (argc != 2) {
@@ -84,7 +55,8 @@ static void _memstat_print_stats(terminal_t *term, int, char **)
         "\n[*] Used physical memory pages: %d pages\n",
         pmm_info.total_pages - pmm_info.free_pages);
 
-    term_printf(term, "\n[*] Total heap blocks: %d blocks", heap_stats.free_blocks + heap_stats.used_blocks);
+    term_printf(
+        term, "\n[*] Total heap blocks: %d blocks", heap_stats.free_blocks + heap_stats.used_blocks);
     term_printf(term, "\n[*] Free heap blocks: %d blocks", heap_stats.free_blocks);
     term_printf(term, "\n[*] Used heap blocks: %d blocks", heap_stats.used_blocks);
     term_printf(term, "\n[*] Allocated heap memory: %d bytes", heap_stats.used_memory);

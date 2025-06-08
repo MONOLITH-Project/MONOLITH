@@ -5,6 +5,7 @@
 
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
+#include <kernel/memory/vmm.h>
 #include <kernel/serial.h>
 #include <stdint.h>
 
@@ -55,7 +56,7 @@ bool heap_init(size_t pages)
         return false;
     }
 
-    _heap.start = heap_memory;
+    _heap.start = vmm_get_hhdm_addr(heap_memory);
     _heap.total_size = pages * PAGE_SIZE;
 
     block_header_t *initial_block = (block_header_t *) _heap.start;
@@ -112,7 +113,7 @@ start:
     size_t growth_size = (size + sizeof(block_header_t) + PAGE_SIZE - 1) / PAGE_SIZE;
     void *new_memory = pmm_alloc(growth_size);
     if (new_memory != NULL) {
-        _add_free_block(new_memory, growth_size * PAGE_SIZE);
+        _add_free_block(vmm_get_hhdm_addr(new_memory), growth_size * PAGE_SIZE);
         goto start;
     }
     return NULL;
