@@ -10,6 +10,7 @@
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
 #include <kernel/serial.h>
+#include <kernel/timer.h>
 #include <kernel/video/console.h>
 #include <libs/limine/limine.h>
 
@@ -42,6 +43,7 @@ void kmain()
     pmm_init(limine_mmap_request.response);
     vmm_init(limine_mmap_request.response);
     heap_init(10);
+    timer_init();
     console_init(framebuffer_request.response);
 
     while (1)

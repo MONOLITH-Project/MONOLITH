@@ -46,6 +46,7 @@
 ## CPU & Multiprocessing
 
 - [x] SIMD (SSE, AVX, ...).
+- [x] PIT Timer.
 - [ ] APIC.
 - [ ] APIC timer.
 - [ ] HPET.

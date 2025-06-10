@@ -22,3 +22,8 @@ global asm_write_cr3
 asm_write_cr3:
     mov cr3, rdi
     ret
+
+global asm_hlt
+asm_hlt:
+    hlt
+    ret

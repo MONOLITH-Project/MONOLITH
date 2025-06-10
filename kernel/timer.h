@@ -7,8 +7,5 @@
 
 #include <stdint.h>
 
-void asm_invlpg(void *virt_addr);
-uintptr_t asm_read_cr2();
-uintptr_t asm_read_cr3();
-void asm_write_cr3(uintptr_t value);
-void asm_hlt();
+void timer_init();
+void sleep(uint64_t ms);
