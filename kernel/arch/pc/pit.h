@@ -7,8 +7,6 @@
 
 #include <stdint.h>
 
-void asm_invlpg(void *virt_addr);
-uintptr_t asm_read_cr2();
-uintptr_t asm_read_cr3();
-void asm_write_cr3(uintptr_t value);
-void asm_hlt();
+uint16_t pit_get_count();
+void pit_set_reload(uint16_t);
+void pit_set_frequency(uint16_t);
