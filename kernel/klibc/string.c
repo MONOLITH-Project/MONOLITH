@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
+#include <kernel/memory/heap.h>
 #include <stdint.h>
 
 int strcmp(const char *s1, const char *s2)
@@ -11,6 +13,16 @@ int strcmp(const char *s1, const char *s2)
     for (; *s1 == *s2 && *s1; s1++, s2++)
         ;
     return *(unsigned char *) s1 - *(unsigned char *) s2;
+}
+
+char *strcat(char *dest, const char *src)
+{
+    char *result = dest;
+    while (*dest)
+        dest++;
+    while (*dest++ = *src++)
+        ;
+    return result;
 }
 
 char *strcpy(char *dst, const char *src)
@@ -92,4 +104,14 @@ char *itohex(size_t x, char *buffer)
 
     buffer[i] = '\0';
     return buffer;
+}
+
+char *strdup(const char *str)
+{
+    size_t len = strlen(str) + 1;
+    char *dup = kmalloc(len);
+    if (!dup)
+        return NULL;
+    memcpy(dup, str, len);
+    return dup;
 }

@@ -6,6 +6,8 @@
 #include <kernel/arch/pc/gdt.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/arch/pc/sse.h>
+#include <kernel/fs/tmpfs.h>
+#include <kernel/fs/vfs.h>
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
@@ -44,6 +46,8 @@ void kmain()
     vmm_init(limine_mmap_request.response);
     heap_init(10);
     timer_init();
+    vfs_init();
+    tmpfs_mount(vfs_root);
     console_init(framebuffer_request.response);
 
     while (1)

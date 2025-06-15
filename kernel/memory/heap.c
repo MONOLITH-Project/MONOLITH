@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/klibc/memory.h>
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
@@ -117,6 +118,25 @@ start:
         goto start;
     }
     return NULL;
+}
+
+void *krealloc(void *pointer, size_t size)
+{
+    if (pointer == NULL)
+        return kmalloc(size);
+
+    block_header_t *block = (block_header_t *) ((void *) pointer - sizeof(block_header_t));
+    size_t old_size = block->size;
+
+    if (size <= old_size)
+        return pointer;
+
+    void *new_pointer = kmalloc(size);
+    if (new_pointer != NULL) {
+        memcpy(new_pointer, pointer, old_size);
+        kfree(pointer);
+    }
+    return new_pointer;
 }
 
 void kfree(void *pointer)
