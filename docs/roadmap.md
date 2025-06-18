@@ -30,7 +30,7 @@
 
 ## Storage
 
-- [ ] Virtual File System.
+- [x] Virtual File System.
 - [ ] ISO9660 filesystem support.
 - [ ] FAT filesystem support.
   - [ ] Read.

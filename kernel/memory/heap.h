@@ -28,6 +28,12 @@ bool heap_init(size_t pages);
 void *kmalloc(size_t size);
 
 /*
+ * Reallocates a block of memory of the specified size.
+ * Returns a pointer to the reallocated memory, or NULL if the reallocation fails.
+ */
+void *krealloc(void *pointer, size_t size);
+
+/*
  * Frees a previously allocated memory block.
  * The pointer parameter must be a pointer previously returned by kmalloc.
  */
