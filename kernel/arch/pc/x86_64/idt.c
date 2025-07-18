@@ -5,6 +5,7 @@
 
 #include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/idt.h>
+#include <kernel/arch/pc/morse_debug.h>
 #include <kernel/klibc/io.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
@@ -255,6 +256,10 @@ static const char *error_messages[] = {
 void isr_handler(struct interrupt_registers *regs)
 {
     if (regs->isr_number < 32) {
+        uint8_t tmp = inb(0x61);
+        if (tmp != (tmp | 3)) {
+            outb(tmp | 3, 0x61);
+        }
         debug_log_fmt("[-] System panic!\n");
         switch (regs->isr_number) {
         case 14: { /* Page Fault */
@@ -265,6 +270,7 @@ void isr_handler(struct interrupt_registers *regs)
             itohex(address, buffer + index);
             debug_log_fmt("[-] %s\n", buffer);
             panic(buffer);
+            morse_log(buffer);
         } break;
         case 13: { /* General Protection Fault */
             uintptr_t address = regs->rip;
@@ -274,9 +280,11 @@ void isr_handler(struct interrupt_registers *regs)
             itohex(address, buffer + index);
             debug_log_fmt("[-] %s\n", buffer);
             panic(buffer);
+            morse_log(buffer);
         } break;
         default:
             panic(error_messages[regs->isr_number]);
+            morse_log(error_messages[regs->isr_number]);
             debug_log_fmt("[-] Error: %s\n", error_messages[regs->isr_number]);
         }
         while (1)
