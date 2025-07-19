@@ -25,8 +25,9 @@ static char _fb_read_callback(terminal_t *)
     ps2_event_t event = ps2_wait_for_event();
     ps2_action_t action = ps2_get_event_action(event);
 
-    char c = ps2_is_capslock_on() ? keyboard_layouts[KB_LAYOUT_US].shifted_keymap[event.scancode]
-                                  : keyboard_layouts[KB_LAYOUT_US].keymap[event.scancode];
+    char c = ps2_is_capslock_on() || ps2_is_key_down(KEY_RSHIFT) || ps2_is_key_down(KEY_LSHIFT)
+                 ? keyboard_layouts[KB_LAYOUT_US].shifted_keymap[event.scancode]
+                 : keyboard_layouts[KB_LAYOUT_US].keymap[event.scancode];
     if (action == KEYBOARD_HOLD) {
         return c;
     }
