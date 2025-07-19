@@ -20,7 +20,7 @@ char *strcat(char *dest, const char *src)
     char *result = dest;
     while (*dest)
         dest++;
-    while (*dest++ = *src++)
+    while ((*dest++ = *src++))
         ;
     return result;
 }
@@ -114,4 +114,13 @@ char *strdup(const char *str)
         return NULL;
     memcpy(dup, str, len);
     return dup;
+}
+
+char *strchr(const char *s, int c) {
+    while (*s) {
+        if (*s == c)
+            return (char *)s;
+        s++;
+    }
+    return NULL;
 }

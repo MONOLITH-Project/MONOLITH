@@ -7,4 +7,4 @@
 
 #include <kernel/fs/vfs.h>
 
-void tmpfs_mount(vfs_vnode_t *root);
+int tmpfs_new_drive();

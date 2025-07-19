@@ -11,199 +11,194 @@
 
 typedef struct
 {
-    void *data;
     size_t size;
-    size_t owner_id;
-} tmpfs_inode_t;
+    void *data;
+} _tmpfs_inode_t;
 
-size_t current_file_id = 0;
-
-static vfs_ops_t *_tmpfs_ops_init();
-
-static vfs_kfile_t *_tmpfs_open(vfs_vnode_t *file, int flags)
+typedef struct
 {
-    if (file->type != VFS_FILE)
+    vfs_node_t *vnode;
+    size_t offset;
+} _tmpfs_fd_t;
+
+static _tmpfs_fd_t *_fd_map = NULL;
+static int _fd_map_size = 0;
+
+static vfs_node_t *_new_tmpfs_node(vfs_drive_t *drive, vfs_node_type_t type)
+{
+    vfs_node_t *new_node = kmalloc(sizeof(vfs_node_t));
+    if (new_node == NULL)
         return NULL;
-
-    tmpfs_inode_t *inode = file->inode;
-    vfs_kfile_t *kfile = kmalloc(sizeof(vfs_kfile_t));
-    if (kfile == NULL)
-        return NULL;
-
-    kfile->vnode = file;
-    kfile->offset = 0;
-    kfile->id = current_file_id++;
-
-    if (flags & O_RDWR || flags & O_WRONLY)
-        inode->owner_id = kfile->id;
-
-    return kfile;
+    new_node->name = NULL;
+    new_node->drive = drive;
+    new_node->type = type;
+    return new_node;
 }
 
-static int _tmpfs_close(vfs_kfile_t *kfile)
+static int _tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type)
 {
-    if (kfile == NULL)
+    vfs_node_t *new_node = _new_tmpfs_node(parent->drive, type);
+    if (!new_node)
         return -1;
 
-    tmpfs_inode_t *inode = kfile->vnode->inode;
-    inode->owner_id = -1;
-    kfree(kfile);
-
-    return 0;
-}
-
-static int _tmpfs_mkdir(vfs_vnode_t *parent, const char *name)
-{
-    vfs_vnode_t *node = kmalloc(sizeof(vfs_vnode_t));
-    if (node == NULL)
+    new_node->name = strdup(name);
+    if (new_node->name == NULL) {
+        kfree(new_node);
         return -1;
+    }
 
-    node->name = strdup(name);
-    if (node->name == NULL)
+    new_node->internal = kmalloc(sizeof(_tmpfs_inode_t));
+    if (new_node->internal == NULL) {
+        kfree(new_node->name);
+        kfree(new_node);
         return -1;
-    node->parent = parent;
-    node->child = NULL;
-    node->type = VFS_DIRECTORY;
-    node->inode = NULL;
-
-    node->ops = _tmpfs_ops_init();
-    if (node->ops == NULL)
-        return -1;
-
-    vfs_add_child(parent, node);
-    return 0;
-}
-
-static int _tmpfs_create(vfs_vnode_t *parent, const char *name)
-{
-    if (parent->type != VFS_DIRECTORY)
-        return -1;
-
-    if (vfs_find_child(parent, name) != NULL)
-        return -1;
-
-    vfs_vnode_t *node = kmalloc(sizeof(vfs_vnode_t));
-    if (node == NULL)
-        return -1;
-
-    node->name = strdup(name);
-    if (node->name == NULL)
-        return -1;
-    node->parent = parent;
-    node->child = NULL;
-    node->type = VFS_FILE;
-    node->inode = kmalloc(sizeof(tmpfs_inode_t));
-    if (node->inode == NULL)
-        return -1;
-
-    tmpfs_inode_t *inode = node->inode;
-    inode->size = 0;
+    }
+    _tmpfs_inode_t *inode = new_node->internal;
     inode->data = NULL;
-    inode->owner_id = -1;
+    inode->size = 0;
 
-    node->ops = _tmpfs_ops_init();
-    if (node->ops == NULL)
-        return -1;
-
-    vfs_add_child(parent, node);
+    new_node->child = NULL;
+    vfs_add_child(parent, new_node);
 
     return 0;
 }
 
-static int _tmpfs_unlink(vfs_vnode_t *vnode)
+static int _tmpfs_remove(vfs_node_t *file)
 {
-    tmpfs_inode_t *inode = vnode->inode;
-    vfs_remove_child(vnode->parent, vnode);
-    kfree(vnode->name);
-    kfree(vnode->ops);
-    kfree(inode->data);
-    kfree(inode);
-
+    kfree(((_tmpfs_inode_t *) file->internal)->data);
+    kfree(file->internal);
+    kfree(file->name);
+    kfree(file);
+    vfs_remove_child(file->parent, file);
     return 0;
 }
 
-static int _tmpfs_write(vfs_kfile_t *file, const void *buf, size_t count)
+static int _tmpfs_open(vfs_node_t *file)
 {
-    vfs_vnode_t *vnode = file->vnode;
-    if (vnode->type != VFS_FILE)
-        return -1;
-
-    tmpfs_inode_t *inode = vnode->inode;
-    if (file->offset + count > inode->size) {
-        void *tmp = krealloc(inode->data, inode->size + count);
-        if (tmp == NULL)
+    /* Initialize the file descriptor map */
+    if (_fd_map == NULL) {
+        _fd_map = kmalloc(10 * sizeof(_tmpfs_fd_t));
+        if (_fd_map == NULL)
             return -1;
-        inode->data = tmp;
-        inode->size = file->offset + count;
-    }
-    memcpy(inode->data + file->offset, buf, count);
-    file->offset += count;
-
-    return count;
-}
-
-static int _tmpfs_read(vfs_kfile_t *file, void *buf, size_t count)
-{
-    vfs_vnode_t *vnode = file->vnode;
-    if (vnode->type != VFS_FILE)
-        return -1;
-
-    if (vnode->inode == NULL)
-        return -1;
-
-    tmpfs_inode_t *inode = vnode->inode;
-    if (file->offset + count > inode->size)
-        count = inode->size - file->offset;
-
-    memcpy(buf, inode->data + file->offset, count);
-    file->offset += count;
-
-    return count;
-}
-
-static int _tmpfs_seek(vfs_kfile_t *file, size_t offset, seek_t whence)
-{
-    vfs_vnode_t *vnode = file->vnode;
-    if (vnode->type != VFS_FILE)
-        return -1;
-
-    tmpfs_inode_t *inode = vnode->inode;
-    switch (whence) {
-    case SEEK_SET:
-        file->offset = offset;
-        break;
-    case SEEK_CUR:
-        file->offset += offset;
-        break;
-    case SEEK_END:
-        file->offset = inode->size + offset;
-        break;
-    default:
-        return -1;
+        _fd_map_size = 10;
+        memset(_fd_map, 0, _fd_map_size * sizeof(vfs_node_t *));
     }
 
-    return file->offset;
+    /* Look for empty entries in the file descriptor map */
+    int i;
+    for (i = 0; i < _fd_map_size; i++) {
+        if (_fd_map[i].vnode == NULL) {
+            _fd_map[i].vnode = file;
+            _fd_map[i].offset = 0;
+            return i;
+        }
+    }
+
+    /* If none are found, expand its size */
+    _tmpfs_fd_t *new_map = krealloc(_fd_map, _fd_map_size * 2);
+    if (new_map == NULL)
+        return -1;
+    _fd_map = new_map;
+    for (int j = i; j < i * 2; j++)
+        _fd_map[j] = (_tmpfs_fd_t) {.offset = 0, .vnode = NULL};
+    _fd_map_size *= 2;
+
+    _fd_map[i] = (_tmpfs_fd_t) {.offset = 0, .vnode = file};
+    return i;
 }
 
-static vfs_ops_t *_tmpfs_ops_init()
+static int _tmpfs_close(int fd)
 {
-    vfs_ops_t *node = kmalloc(sizeof(vfs_ops_t));
-    if (node == NULL)
-        return NULL;
-
-    node->open = _tmpfs_open;
-    node->close = _tmpfs_close;
-    node->mkdir = _tmpfs_mkdir;
-    node->create = _tmpfs_create;
-    node->unlink = _tmpfs_unlink;
-    node->write = _tmpfs_write;
-    node->read = _tmpfs_read;
-    node->seek = _tmpfs_seek;
-
-    return node;
+    if (fd > _fd_map_size)
+        return -1;
+    _fd_map[fd] = (_tmpfs_fd_t) {.offset = 0, .vnode = NULL};
+    return 0;
 }
 
-void tmpfs_mount(vfs_vnode_t *root)
+static int _tmpfs_write(int fd, const void *buffer, uint32_t size)
 {
-    root->ops = _tmpfs_ops_init();
+    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
+        return -1;
+
+    _tmpfs_inode_t *inode = _fd_map[fd].vnode->internal;
+    if (inode->size < _fd_map[fd].offset + size) {
+        void *new_data = krealloc(inode->data, _fd_map[fd].offset + size);
+        if (new_data == NULL)
+            return -1;
+        inode->data = new_data;
+        inode->size = _fd_map[fd].offset + size;
+    }
+
+    memcpy(inode->data + _fd_map[fd].offset, buffer, size);
+    _fd_map[fd].offset += size;
+    return size;
+}
+
+static int _tmpfs_read(int fd, void *buffer, uint32_t size)
+{
+    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
+        return -1;
+
+    _tmpfs_inode_t *inode = _fd_map[fd].vnode->internal;
+    if (_fd_map[fd].offset + size > inode->size)
+        size = inode->size - _fd_map[fd].offset;
+
+    memcpy(buffer, inode->data + _fd_map[fd].offset, size);
+    _fd_map[fd].offset += size;
+    return size;
+}
+
+static int _tmpfs_seek(int fd, size_t offset, seek_mode_t mode) {
+    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
+        return -1;
+
+    _tmpfs_inode_t *inode = _fd_map[fd].vnode->internal;
+    switch (mode) {
+        case SEEK_SET:
+            _fd_map[fd].offset = offset;
+            break;
+        case SEEK_CUR:
+            _fd_map[fd].offset += offset;
+            break;
+        case SEEK_END:
+            _fd_map[fd].offset = inode->size + offset;
+            break;
+    }
+    return 0;
+}
+
+static size_t _tmpfs_tell(int fd) {
+    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
+        return -1;
+
+    return _fd_map[fd].offset;
+}
+
+int tmpfs_new_drive()
+{
+    vfs_drive_t *new_drive = kmalloc(sizeof(vfs_drive_t));
+    if (new_drive == NULL)
+        return -1;
+
+    new_drive->root = _new_tmpfs_node(new_drive, VFS_DIRECTORY);
+    if (!new_drive->root)
+        goto failure;
+
+    if (!vfs_new_drive(new_drive))
+        goto failure;
+
+    new_drive->create = _tmpfs_create;
+    new_drive->remove = _tmpfs_remove;
+    new_drive->open = _tmpfs_open;
+    new_drive->close = _tmpfs_close;
+    new_drive->write = _tmpfs_write;
+    new_drive->read = _tmpfs_read;
+    new_drive->seek = _tmpfs_seek;
+    new_drive->tell = _tmpfs_tell;
+
+    return new_drive->id;
+
+failure:
+    kfree(new_drive);
+    return -1;
 }

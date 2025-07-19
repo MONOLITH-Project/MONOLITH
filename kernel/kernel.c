@@ -46,8 +46,7 @@ void kmain()
     vmm_init(limine_mmap_request.response);
     heap_init(10);
     timer_init();
-    vfs_init();
-    tmpfs_mount(vfs_root);
+    tmpfs_new_drive();
     console_init(framebuffer_request.response);
 
     while (1)
