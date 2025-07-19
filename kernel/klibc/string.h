@@ -15,3 +15,4 @@ size_t strlen(const char *s);
 unsigned long atoul(const char *str);
 size_t atox(const char *hex);
 char *itohex(unsigned long value, char *buffer);
+char *strchr(const char *s, int c);
