@@ -11,27 +11,35 @@
 
 #define MAX_DRIVE_COUNT 16
 
-static uint8_t drives_count = 0;
-static vfs_drive_t *drives_map[MAX_DRIVE_COUNT] = {0};
+static uint8_t _drives_count = 0;
+static vfs_drive_t *_drives_map[MAX_DRIVE_COUNT] = {0};
 
 int vfs_new_drive(vfs_drive_t *drive)
 {
-    if (drives_count >= MAX_DRIVE_COUNT)
+    if (_drives_count >= MAX_DRIVE_COUNT)
         return 0;
     uint8_t index;
     for (index = 0; index < MAX_DRIVE_COUNT; index++) {
-        if (drives_map[index] == NULL)
+        if (_drives_map[index] == NULL)
             break;
     }
     drive->id = index;
-    drives_map[index] = drive;
+    _drives_map[index] = drive;
+    _drives_count++;
     return 1;
+}
+
+vfs_drive_t *vfs_get_drive(uint8_t id) {
+    if (id >= _drives_count || _drives_map[id] == NULL)
+        return NULL;
+    return _drives_map[id];
 }
 
 void vfs_add_child(vfs_node_t *parent, vfs_node_t *child)
 {
     if (parent->child == NULL) {
         parent->child = child;
+        child->sibling = NULL;
     } else {
         vfs_node_t *current = parent->child;
         while (current->sibling != NULL)
@@ -94,7 +102,7 @@ vfs_node_t *vfs_get_relative_path(vfs_node_t *base, const char *path)
         }
 
         /* Current must be a directory to have children */
-        if (current->type != VFS_DIRECTORY) {
+        if (current->type != DIRECTORY) {
             return NULL;
         }
 
@@ -141,10 +149,10 @@ vfs_node_t *vfs_get_path(const char *path)
         p++;
     }
 
-    if (drive_id >= MAX_DRIVE_COUNT || drives_map[drive_id] == NULL)
+    if (drive_id >= MAX_DRIVE_COUNT || _drives_map[drive_id] == NULL)
         return NULL;
 
     const char *path_after_colon = colon + 1;
-    vfs_drive_t *drive = drives_map[drive_id];
+    vfs_drive_t *drive = _drives_map[drive_id];
     return vfs_get_relative_path(drive->root, path_after_colon);
 }

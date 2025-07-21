@@ -10,9 +10,12 @@
 char *strdup(const char *str);
 int strcmp(const char *s1, const char *s2);
 char *strcpy(char *dest, const char *src);
+char *strncpy(char *dest, const char *src, size_t n);
 char *strcat(char *dest, const char *src);
 size_t strlen(const char *s);
 unsigned long atoul(const char *str);
 size_t atox(const char *hex);
+int atoi(const char *nptr);
 char *itohex(unsigned long value, char *buffer);
 char *strchr(const char *s, int c);
+char *strrchr(const char *s, int c);
