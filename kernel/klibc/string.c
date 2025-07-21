@@ -32,6 +32,17 @@ char *strcpy(char *dst, const char *src)
     return dst - 1;
 }
 
+char *strncpy(char *dest, const char *src, size_t n)
+{
+    char *result = dest;
+    size_t i;
+    for (i = 0; i < n && src[i] != '\0'; i++)
+        dest[i] = src[i];
+    for (; i < n; i++)
+        dest[i] = '\0';
+    return result;
+}
+
 size_t strlen(const char *s)
 {
     size_t len = 0;
@@ -50,6 +61,29 @@ unsigned long atoul(const char *str)
         str++;
     }
     return num;
+}
+
+int atoi(const char *nptr)
+{
+    int result = 0;
+    int sign = 1;
+
+    while (*nptr == ' ' || *nptr == '\t')
+        nptr++;
+
+    if (*nptr == '-') {
+        sign = -1;
+        nptr++;
+    } else if (*nptr == '+') {
+        nptr++;
+    }
+
+    while (*nptr >= '0' && *nptr <= '9') {
+        result = result * 10 + (*nptr - '0');
+        nptr++;
+    }
+
+    return result * sign;
 }
 
 size_t atox(const char *hex)
@@ -116,11 +150,22 @@ char *strdup(const char *str)
     return dup;
 }
 
-char *strchr(const char *s, int c) {
+char *strchr(const char *s, int c)
+{
     while (*s) {
         if (*s == c)
-            return (char *)s;
+            return (char *) s;
         s++;
     }
     return NULL;
+}
+
+char *strrchr(const char *s, int c) {
+    char *last = NULL;
+    while (*s) {
+        if (*s == c)
+            last = (char *) s;
+        s++;
+    }
+    return last;
 }

@@ -8,6 +8,7 @@
 #include <kernel/klibc/string.h>
 #include <kernel/memory/heap.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct
 {
@@ -24,7 +25,7 @@ typedef struct
 static _tmpfs_fd_t *_fd_map = NULL;
 static int _fd_map_size = 0;
 
-static vfs_node_t *_new_tmpfs_node(vfs_drive_t *drive, vfs_node_type_t type)
+static vfs_node_t *_new_tmpfs_node(vfs_drive_t *drive, file_type_t type)
 {
     vfs_node_t *new_node = kmalloc(sizeof(vfs_node_t));
     if (new_node == NULL)
@@ -32,30 +33,71 @@ static vfs_node_t *_new_tmpfs_node(vfs_drive_t *drive, vfs_node_type_t type)
     new_node->name = NULL;
     new_node->drive = drive;
     new_node->type = type;
-    return new_node;
-}
-
-static int _tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type)
-{
-    vfs_node_t *new_node = _new_tmpfs_node(parent->drive, type);
-    if (!new_node)
-        return -1;
-
-    new_node->name = strdup(name);
-    if (new_node->name == NULL) {
-        kfree(new_node);
-        return -1;
-    }
-
     new_node->internal = kmalloc(sizeof(_tmpfs_inode_t));
     if (new_node->internal == NULL) {
-        kfree(new_node->name);
         kfree(new_node);
-        return -1;
+        return NULL;
     }
     _tmpfs_inode_t *inode = new_node->internal;
     inode->data = NULL;
     inode->size = 0;
+    return new_node;
+}
+
+static int _tmpfs_create(struct vfs_drive *drive, const char *name, file_type_t type)
+{
+    if (strcmp(name, "/") == 0)
+        return -1;
+
+    /* Find last slash to separate parent path and child name */
+    const char *last_slash = strrchr(name, '/');
+    const char *child_name;
+    char *parent_path = NULL;
+
+    if (last_slash == NULL) {
+        /* No slash: parent is root, child name is whole string */
+        child_name = name;
+        parent_path = strdup("");
+        if (parent_path == NULL)
+            return -1;
+    } else {
+        child_name = last_slash + 1;
+        /* Check if child name is empty (path ends with slash) */
+        if (*child_name == '\0')
+            return -1;
+
+        size_t parent_len = last_slash - name;
+        if (parent_len == 0) {
+            /* Parent is root (path like "/file") */
+            parent_path = strdup("/");
+            if (parent_path == NULL)
+                return -1;
+        } else {
+            parent_path = kmalloc(parent_len + 1);
+            if (parent_path == NULL)
+                return -1;
+            memcpy(parent_path, name, parent_len);
+            parent_path[parent_len] = '\0';
+        }
+    }
+
+    vfs_node_t *parent = vfs_get_relative_path(drive->root, parent_path);
+    kfree(parent_path);
+
+    if (!parent || parent->type != DIRECTORY) {
+        return -1;
+    }
+
+    vfs_node_t *new_node = _new_tmpfs_node(drive, type);
+    if (!new_node)
+        return -1;
+
+    new_node->name = strdup(child_name);
+    if (new_node->name == NULL) {
+        kfree(new_node->internal);
+        kfree(new_node);
+        return -1;
+    }
 
     new_node->child = NULL;
     vfs_add_child(parent, new_node);
@@ -63,18 +105,87 @@ static int _tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t t
     return 0;
 }
 
-static int _tmpfs_remove(vfs_node_t *file)
+static int _tmpfs_getdents(int fd, void *buffer, uint32_t size)
 {
+    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
+        return -1;
+    if (_fd_map[fd].vnode->type != DIRECTORY)
+        return -1;
+
+    vfs_node_t *current_file = _fd_map[fd].vnode->child;
+    uint32_t buffer_offset = 0;
+    size_t current_offset = 0;
+
+    // Skip entries that are entirely before the offset
+    while (current_file != NULL) {
+        size_t name_len = strlen(current_file->name) + 1;
+        size_t entry_size = sizeof(dir_entry_t) + name_len;
+
+        if (current_offset + entry_size <= _fd_map[fd].offset) {
+            current_offset += entry_size;
+            current_file = current_file->sibling;
+        } else {
+            break;
+        }
+    }
+
+    // Skip partially read entries (offset falls in the middle)
+    if (current_file != NULL) {
+        size_t name_len = strlen(current_file->name) + 1;
+        size_t entry_size = sizeof(dir_entry_t) + name_len;
+
+        if (current_offset < _fd_map[fd].offset) {
+            current_offset += entry_size;
+            current_file = current_file->sibling;
+        }
+    }
+
+    // Read directory entries
+    while (current_file != NULL) {
+        size_t name_len = strlen(current_file->name) + 1;
+        size_t entry_size = sizeof(dir_entry_t) + name_len;
+
+        if (buffer_offset + entry_size > size) {
+            break;
+        }
+
+        dir_entry_t *entry = (dir_entry_t *)((char *)buffer + buffer_offset);
+        entry->length = entry_size;
+        entry->type = current_file->type;
+        memcpy(entry->name, current_file->name, name_len);
+
+        buffer_offset += entry_size;
+        current_offset += entry_size;
+        current_file = current_file->sibling;
+    }
+
+    // Update the offset for the next read
+    _fd_map[fd].offset = current_offset;
+
+    return buffer_offset;
+}
+
+static int _tmpfs_remove(struct vfs_drive *drive, const char *name)
+{
+    vfs_node_t *file = vfs_get_relative_path(((vfs_drive_t *) drive)->root, name);
+    if (!file)
+        return -1;
+
     kfree(((_tmpfs_inode_t *) file->internal)->data);
     kfree(file->internal);
     kfree(file->name);
     kfree(file);
     vfs_remove_child(file->parent, file);
+
     return 0;
 }
 
-static int _tmpfs_open(vfs_node_t *file)
+static int _tmpfs_open(struct vfs_drive *drive, const char *path)
 {
+    vfs_node_t *file = vfs_get_relative_path(((vfs_drive_t *) drive)->root, path);
+    if (!file)
+        return -1;
+
     /* Initialize the file descriptor map */
     if (_fd_map == NULL) {
         _fd_map = kmalloc(10 * sizeof(_tmpfs_fd_t));
@@ -148,26 +259,42 @@ static int _tmpfs_read(int fd, void *buffer, uint32_t size)
     return size;
 }
 
-static int _tmpfs_seek(int fd, size_t offset, seek_mode_t mode) {
+static int _tmpfs_seek(int fd, size_t offset, seek_mode_t mode)
+{
     if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
         return -1;
 
     _tmpfs_inode_t *inode = _fd_map[fd].vnode->internal;
     switch (mode) {
-        case SEEK_SET:
-            _fd_map[fd].offset = offset;
-            break;
-        case SEEK_CUR:
-            _fd_map[fd].offset += offset;
-            break;
-        case SEEK_END:
-            _fd_map[fd].offset = inode->size + offset;
-            break;
+    case SEEK_SET:
+        _fd_map[fd].offset = offset;
+        break;
+    case SEEK_CUR:
+        _fd_map[fd].offset += offset;
+        break;
+    case SEEK_END:
+        _fd_map[fd].offset = inode->size + offset;
+        break;
     }
     return 0;
 }
 
-static size_t _tmpfs_tell(int fd) {
+int _tmpfs_getstats(int fd, file_stats_t *stats)
+{
+    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
+        return -1;
+
+    _tmpfs_inode_t *inode = _fd_map[fd].vnode->internal;
+    *stats = (file_stats_t) {
+        .size = inode->size,
+        .type = _fd_map[fd].vnode->type,
+    };
+
+    return 0;
+}
+
+static size_t _tmpfs_tell(int fd)
+{
     if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
         return -1;
 
@@ -180,7 +307,7 @@ int tmpfs_new_drive()
     if (new_drive == NULL)
         return -1;
 
-    new_drive->root = _new_tmpfs_node(new_drive, VFS_DIRECTORY);
+    new_drive->root = _new_tmpfs_node(new_drive, DIRECTORY);
     if (!new_drive->root)
         goto failure;
 
@@ -195,6 +322,8 @@ int tmpfs_new_drive()
     new_drive->read = _tmpfs_read;
     new_drive->seek = _tmpfs_seek;
     new_drive->tell = _tmpfs_tell;
+    new_drive->getdents = _tmpfs_getdents;
+    new_drive->getstats = _tmpfs_getstats;
 
     return new_drive->id;
 
