@@ -29,7 +29,8 @@ int vfs_new_drive(vfs_drive_t *drive)
     return 1;
 }
 
-vfs_drive_t *vfs_get_drive(uint8_t id) {
+vfs_drive_t *vfs_get_drive(uint8_t id)
+{
     if (id >= _drives_count || _drives_map[id] == NULL)
         return NULL;
     return _drives_map[id];
@@ -129,30 +130,4 @@ vfs_node_t *vfs_get_relative_path(vfs_node_t *base, const char *path)
     }
 
     return current;
-}
-
-vfs_node_t *vfs_get_path(const char *path)
-{
-    const char *colon = strchr(path, ':');
-    if (colon == NULL)
-        return NULL;
-
-    /* Parse drive ID */
-    uint8_t drive_id = 0;
-    const char *p = path;
-    while (p < colon) {
-        if (*p < '0' || *p > '9')
-            return NULL;
-        drive_id = drive_id * 10 + (*p - '0');
-        if (drive_id >= MAX_DRIVE_COUNT)
-            break;
-        p++;
-    }
-
-    if (drive_id >= MAX_DRIVE_COUNT || _drives_map[drive_id] == NULL)
-        return NULL;
-
-    const char *path_after_colon = colon + 1;
-    vfs_drive_t *drive = _drives_map[drive_id];
-    return vfs_get_relative_path(drive->root, path_after_colon);
 }

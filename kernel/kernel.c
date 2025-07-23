@@ -6,6 +6,7 @@
 #include <kernel/arch/pc/gdt.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/arch/pc/sse.h>
+#include <kernel/fs/initrdfs.h>
 #include <kernel/fs/tmpfs.h>
 #include <kernel/fs/vfs.h>
 #include <kernel/memory/heap.h>
@@ -25,6 +26,10 @@ __attribute__((used, section(".limine_requests"))) static volatile struct limine
 __attribute__((used, section(".limine_requests"))) volatile struct limine_memmap_request
     limine_mmap_request
     = {.id = LIMINE_MEMMAP_REQUEST, .revision = 0};
+
+__attribute__((used, section(".limine_requests"))) volatile struct limine_module_request
+    limine_module_request
+    = {.id = LIMINE_MODULE_REQUEST, .revision = 0};
 
 __attribute__((used, section(".limine_requests_start"))) static volatile LIMINE_REQUESTS_START_MARKER;
 
@@ -46,6 +51,7 @@ void kmain()
     vmm_init(limine_mmap_request.response);
     heap_init(10);
     timer_init();
+    initrd_load_modules(limine_module_request.response);
     tmpfs_new_drive();
     console_init(framebuffer_request.response);
 

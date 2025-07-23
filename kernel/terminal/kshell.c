@@ -6,6 +6,7 @@
 #include <kernel/fs/vfs.h>
 #include <kernel/klibc/string.h>
 #include <kernel/memory/heap.h>
+#include <kernel/memory/pmm.h>
 #include <kernel/terminal/kshell.h>
 #include <kernel/terminal/terminal.h>
 #include <stdbool.h>
@@ -215,7 +216,7 @@ static void _pwd(terminal_t *term, int argc, char **)
     term_printf(term, "\n%d:%s", _current_drive->id, _current_dir);
 }
 
-static void _ls(terminal_t *term, int argc, char **argv)
+static void _ls(terminal_t *term, int argc, char **)
 {
     if (argc != 1) {
         term_puts(term, "\n[-] Usage: ls");
@@ -347,7 +348,8 @@ static void _cat(terminal_t *term, int argc, char *argv[])
             drive->close(fd);
             return;
         } else if (bytes > 0) {
-            term_puts(term, buffer);
+            for (int i = 0; i < bytes; i++)
+                term_putc(term, buffer[i]);
         } else {
             return;
         }
