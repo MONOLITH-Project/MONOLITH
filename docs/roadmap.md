@@ -3,7 +3,7 @@
 ## Branding
 
 - [x] Figure out a name for the project.
-- [ ] Design logo and visual identity.
+- [x] Design logo and visual identity.
 
 ## Boot & Initial System Setup
 
@@ -31,6 +31,7 @@
 ## Storage
 
 - [x] Virtual File System.
+- [x] Initial ramdisk (initrd) file system.
 - [ ] ISO9660 filesystem support.
 - [ ] FAT filesystem support.
   - [ ] Read.
@@ -51,14 +52,14 @@
 - [ ] APIC timer.
 - [ ] HPET.
 - [ ] SMP.
-- [ ] Multi-tasking.
 
 ## User Mode & Process Management
 
-- [ ] User-space.
-- [ ] ELF loader.
+- [ ] Loading user programs.
 - [ ] System calls.
-- [ ] IPC.
+- [ ] Task scheduler.
+- [ ] Run programs in userspace.
+- [ ] Multi-tasking.
 
 ## Architecture support
 
@@ -79,11 +80,7 @@
 
 ## Video and Graphics
 
-- [ ] VESA Driver.
-  - [x] i386.
-  - [ ] x86_64.
 - [ ] Bochs Display Adapter.
-- [ ] GOP Driver.
 - [ ] GUI.
 - [ ] Graphics library.
 - [ ] Font rendering.
@@ -102,35 +99,3 @@
 - [ ] DHCP client.
 - [ ] DNS client.
 - [ ] TLS/SSL support.
-
-## Syscalls
-
-- [ ] Process Management
-  - [ ] fork
-  - [ ] exec
-  - [ ] exit
-  - [ ] wait
-  - [ ] getpid
-- [ ] Memory Management
-  - [ ] mmap
-  - [ ] munmap
-  - [ ] brk
-- [ ] File Operations
-  - [ ] open
-  - [ ] close
-  - [ ] read
-  - [ ] write
-  - [ ] lseek
-  - [ ] stat
-  - [ ] ioctl
-  - [ ] fcntl
-- [ ] Directory Operations
-  - [ ] opendir
-  - [ ] readdir
-  - [ ] mkdir
-  - [ ] rmdir
-- [ ] File System
-  - [ ] mount
-  - [ ] umount
-  - [ ] chdir
-  - [ ] getcwd
