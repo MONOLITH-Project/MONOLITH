@@ -29,7 +29,8 @@ typedef struct
     char name[];      /* File name */
 } dir_entry_t;
 
-typedef struct {
+typedef struct
+{
     uint64_t size;
     file_type_t type;
 } file_stats_t;
@@ -48,7 +49,7 @@ typedef struct vfs_node
 typedef struct vfs_drive
 {
     uint8_t id;
-    vfs_node_t *root;
+    void *internal;
     int (*open)(struct vfs_drive *drive, const char *path);
     int (*close)(int fd);
     int (*create)(struct vfs_drive *drive, const char *name, file_type_t type);
@@ -65,5 +66,4 @@ int vfs_new_drive(vfs_drive_t *);
 vfs_drive_t *vfs_get_drive(uint8_t id);
 void vfs_add_child(vfs_node_t *parent, vfs_node_t *child);
 void vfs_remove_child(vfs_node_t *parent, vfs_node_t *child);
-vfs_node_t *vfs_get_path(const char *path);
 vfs_node_t *vfs_get_relative_path(vfs_node_t *parent, const char *path);

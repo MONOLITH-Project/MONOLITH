@@ -36,6 +36,7 @@ endef
 
 # Output files
 KERNEL_BIN := $(BUILD_DIR)/kernel.bin
+INITRD_TAR := $(BUILD_DIR)/initrd.tar
 ISO_FILE := $(BUILD_DIR)/myos.iso
 
 # Export variables for submakes
@@ -52,7 +53,7 @@ LDFLAGS += -T boot/pc/$(CPU_ARCH)/linker.ld -nostdlib -z max-page-size=0x1000 -s
 FLANTERM_SOURCES := libs/flanterm/flanterm.c libs/flanterm/backends/fb.c
 FLANTERM_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(FLANTERM_SOURCES))
 
-.PHONY: all clean toolchain iso run run-debug kernel test flanterm
+.PHONY: all clean toolchain iso run run-debug kernel test flanterm initrd
 
 # Default target
 all: | $(BUILD_DIR)
@@ -60,6 +61,7 @@ all: | $(BUILD_DIR)
 	$(MAKE) kernel
 	$(MAKE) boot
 	$(MAKE) flanterm
+	$(MAKE) initrd
 	$(MAKE) $(KERNEL_BIN)
 	$(MAKE) $(ISO_FILE)
 
@@ -101,11 +103,17 @@ coverage-report:
 $(KERNEL_BIN): kernel flanterm | toolchain
 	$(LD) $(LDFLAGS) -o $@ $(shell find $(OBJ_DIR) -type f -name "*.o")
 
+# Create initrd tarball in ustar format
+initrd: | $(BUILD_DIR)
+	@echo "Creating initrd archive in ustar format..."
+	tar --format=ustar -cf $(INITRD_TAR) -C initrd .
+
 # Create ISO
-$(ISO_FILE): $(KERNEL_BIN)
+$(ISO_FILE): $(KERNEL_BIN) $(INITRD_TAR)
 	make -C libs/limine
 	mkdir -p build/iso/boot/limine
 	cp -v $(KERNEL_BIN) build/iso/boot
+	cp -v $(INITRD_TAR) build/iso/boot
 	cp -v boot/pc/limine.conf boot/pc/wallpaper.png libs/limine/limine-bios.sys \
 	    libs/limine/limine-bios-cd.bin libs/limine/limine-uefi-cd.bin \
 		build/iso/boot/limine

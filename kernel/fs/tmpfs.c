@@ -81,7 +81,7 @@ static int _tmpfs_create(struct vfs_drive *drive, const char *name, file_type_t 
         }
     }
 
-    vfs_node_t *parent = vfs_get_relative_path(drive->root, parent_path);
+    vfs_node_t *parent = vfs_get_relative_path(drive->internal, parent_path);
     kfree(parent_path);
 
     if (!parent || parent->type != DIRECTORY) {
@@ -149,7 +149,7 @@ static int _tmpfs_getdents(int fd, void *buffer, uint32_t size)
             break;
         }
 
-        dir_entry_t *entry = (dir_entry_t *)((char *)buffer + buffer_offset);
+        dir_entry_t *entry = (dir_entry_t *) ((char *) buffer + buffer_offset);
         entry->length = entry_size;
         entry->type = current_file->type;
         memcpy(entry->name, current_file->name, name_len);
@@ -167,7 +167,7 @@ static int _tmpfs_getdents(int fd, void *buffer, uint32_t size)
 
 static int _tmpfs_remove(struct vfs_drive *drive, const char *name)
 {
-    vfs_node_t *file = vfs_get_relative_path(((vfs_drive_t *) drive)->root, name);
+    vfs_node_t *file = vfs_get_relative_path(((vfs_drive_t *) drive)->internal, name);
     if (!file)
         return -1;
 
@@ -182,7 +182,7 @@ static int _tmpfs_remove(struct vfs_drive *drive, const char *name)
 
 static int _tmpfs_open(struct vfs_drive *drive, const char *path)
 {
-    vfs_node_t *file = vfs_get_relative_path(((vfs_drive_t *) drive)->root, path);
+    vfs_node_t *file = vfs_get_relative_path(((vfs_drive_t *) drive)->internal, path);
     if (!file)
         return -1;
 
@@ -192,7 +192,7 @@ static int _tmpfs_open(struct vfs_drive *drive, const char *path)
         if (_fd_map == NULL)
             return -1;
         _fd_map_size = 10;
-        memset(_fd_map, 0, _fd_map_size * sizeof(vfs_node_t *));
+        memset(_fd_map, 0, _fd_map_size * sizeof(_tmpfs_fd_t));
     }
 
     /* Look for empty entries in the file descriptor map */
@@ -215,7 +215,7 @@ static int _tmpfs_open(struct vfs_drive *drive, const char *path)
     _fd_map_size *= 2;
 
     _fd_map[i] = (_tmpfs_fd_t) {.offset = 0, .vnode = file};
-    return i;
+    return 0;
 }
 
 static int _tmpfs_close(int fd)
@@ -307,8 +307,8 @@ int tmpfs_new_drive()
     if (new_drive == NULL)
         return -1;
 
-    new_drive->root = _new_tmpfs_node(new_drive, DIRECTORY);
-    if (!new_drive->root)
+    new_drive->internal = _new_tmpfs_node(new_drive, DIRECTORY);
+    if (!new_drive->internal)
         goto failure;
 
     if (!vfs_new_drive(new_drive))

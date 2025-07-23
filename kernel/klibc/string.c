@@ -15,6 +15,16 @@ int strcmp(const char *s1, const char *s2)
     return *(unsigned char *) s1 - *(unsigned char *) s2;
 }
 
+int strncmp(const char *s1, const char *s2, size_t n)
+{
+    const unsigned char *l = (void *) s1, *r = (void *) s2;
+    if (!n--)
+        return 0;
+    for (; *l && *r && n && *l == *r; l++, r++, n--)
+        ;
+    return *l - *r;
+}
+
 char *strcat(char *dest, const char *src)
 {
     char *result = dest;
@@ -22,6 +32,17 @@ char *strcat(char *dest, const char *src)
         dest++;
     while ((*dest++ = *src++))
         ;
+    return result;
+}
+
+char *strncat(char *dst, const char *src, size_t ssize)
+{
+    char *result = dst;
+    while (*dst)
+        dst++;
+    while (ssize-- && (*dst++ = *src++))
+        ;
+    *dst = '\0';
     return result;
 }
 
@@ -34,13 +55,16 @@ char *strcpy(char *dst, const char *src)
 
 char *strncpy(char *dest, const char *src, size_t n)
 {
-    char *result = dest;
-    size_t i;
-    for (i = 0; i < n && src[i] != '\0'; i++)
-        dest[i] = src[i];
-    for (; i < n; i++)
-        dest[i] = '\0';
-    return result;
+    char *original_dest = dest;
+    while (n > 0 && *src != '\0') {
+        *dest++ = *src++;
+        n--;
+    }
+    while (n > 0) {
+        *dest++ = '\0';
+        n--;
+    }
+    return original_dest;
 }
 
 size_t strlen(const char *s)
@@ -160,7 +184,8 @@ char *strchr(const char *s, int c)
     return NULL;
 }
 
-char *strrchr(const char *s, int c) {
+char *strrchr(const char *s, int c)
+{
     char *last = NULL;
     while (*s) {
         if (*s == c)
