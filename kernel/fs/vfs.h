@@ -42,28 +42,42 @@ typedef struct vfs_node
     struct vfs_node *parent;
     struct vfs_node *child;
     struct vfs_node *sibling;
-    struct vfs_drive *drive;
     void *internal;
 } vfs_node_t;
+
+typedef struct
+{
+    struct vfs_drive *drive;
+    void *internal;
+    uint32_t offset;
+} file_t;
 
 typedef struct vfs_drive
 {
     uint8_t id;
     void *internal;
-    int (*open)(struct vfs_drive *drive, const char *path);
-    int (*close)(int fd);
+    file_t (*open)(struct vfs_drive *drive, const char *path);
     int (*create)(struct vfs_drive *drive, const char *name, file_type_t type);
     int (*remove)(struct vfs_drive *drive, const char *name);
-    int (*read)(int fd, void *buffer, uint32_t size);
-    int (*write)(int fd, const void *buffer, uint32_t size);
-    int (*seek)(int fd, size_t offset, seek_mode_t mode);
-    int (*getdents)(int fd, void *buffer, uint32_t size);
-    int (*getstats)(int fd, file_stats_t *stats);
-    size_t (*tell)(int fd);
+    int (*read)(file_t *file, void *buffer, uint32_t size);
+    int (*write)(file_t *file, const void *buffer, uint32_t size);
+    int (*seek)(file_t *file, size_t offset, seek_mode_t mode);
+    int (*getdents)(file_t *file, void *buffer, uint32_t size);
+    int (*getstats)(file_t *file, file_stats_t *stats);
+    size_t (*tell)(file_t *file);
 } vfs_drive_t;
 
 int vfs_new_drive(vfs_drive_t *);
-vfs_drive_t *vfs_get_drive(uint8_t id);
 void vfs_add_child(vfs_node_t *parent, vfs_node_t *child);
 void vfs_remove_child(vfs_node_t *parent, vfs_node_t *child);
 vfs_node_t *vfs_get_relative_path(vfs_node_t *parent, const char *path);
+
+file_t file_open(const char *path);
+int file_create(const char *path, file_type_t type);
+int file_remove(const char *path);
+int file_read(file_t *file, void *buffer, uint32_t size);
+int file_write(file_t *file, const void *buffer, uint32_t size);
+int file_seek(file_t *file, size_t offset, seek_mode_t mode);
+int file_getdents(file_t *file, void *buffer, uint32_t size);
+int file_getstats(file_t *file, file_stats_t *stats);
+size_t file_tell(file_t *file);

@@ -12,16 +12,6 @@
 #include <kernel/serial.h>
 #include <stdint.h>
 
-typedef struct
-{
-    void *ustar_base;
-    ustar_block_t *ustar_block;
-    size_t offset;
-} _initrd_fd_t;
-
-static _initrd_fd_t *_fd_map = NULL;
-static int _fd_map_size = 0;
-
 static int _oct2bin(char *str, int size)
 {
     int n = 0;
@@ -91,56 +81,17 @@ static ustar_block_t *_initrd_find_block(void *data, const char *path)
     return NULL;
 }
 
-static int _initrd_open(struct vfs_drive *drive, const char *path)
+static file_t _initrd_open(struct vfs_drive *drive, const char *path)
 {
     ustar_block_t *block = _initrd_find_block(drive->internal, path);
     if (block == NULL)
-        return -1;
+        return (file_t) {0};
 
-    /* Initialize the file descriptor map */
-    if (_fd_map == NULL) {
-        _fd_map = kmalloc(10 * sizeof(_initrd_fd_t));
-        if (_fd_map == NULL)
-            return -1;
-        _fd_map_size = 10;
-        memset(_fd_map, 0, _fd_map_size * sizeof(_initrd_fd_t));
-    }
-
-    /* Look for empty entries in the file descriptor map */
-    int i;
-    for (i = 0; i < _fd_map_size; i++) {
-        if (_fd_map[i].ustar_block == NULL) {
-            _fd_map[i].ustar_block = block;
-            _fd_map[i].offset = 0;
-            _fd_map[i].ustar_base = drive->internal;
-            return i;
-        }
-    }
-
-    /* If none are found, expand its size */
-    size_t new_size = _fd_map_size * 2;
-    _initrd_fd_t *new_map = krealloc(_fd_map, new_size * sizeof(_initrd_fd_t));
-    if (new_map == NULL)
-        return -1;
-
-    _fd_map = new_map;
-    memset(_fd_map + _fd_map_size, 0, _fd_map_size * sizeof(_initrd_fd_t));
-
-    int fd_index = _fd_map_size;
-    _fd_map[fd_index].ustar_block = block;
-    _fd_map[fd_index].offset = 0;
-    _fd_map[fd_index].ustar_base = drive->internal;
-
-    _fd_map_size = new_size;
-    return fd_index;
-}
-
-static int _initrd_close(int fd)
-{
-    if (fd > _fd_map_size)
-        return -1;
-    _fd_map[fd] = (_initrd_fd_t) {.offset = 0, .ustar_block = NULL};
-    return 0;
+    return (file_t) {
+        .drive = drive,
+        .internal = block,
+        .offset = 0,
+    };
 }
 
 static int _initrd_create(struct vfs_drive *, const char *, file_type_t)
@@ -153,54 +104,46 @@ static int _initrd_remove(struct vfs_drive *, const char *)
     return -1;
 }
 
-static int _initrd_write(int, const void *, uint32_t)
+static int _initrd_write(file_t *, const void *, uint32_t)
 {
     return -1;
 }
 
-static int _initrd_read(int fd, void *buffer, uint32_t size)
+static int _initrd_read(file_t *file, void *buffer, uint32_t size)
 {
-    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].ustar_block == NULL)
-        return -1;
-
-    ustar_block_t *block = _fd_map[fd].ustar_block;
+    ustar_block_t *block = file->internal;
     size_t block_size = _oct2bin(block->size, sizeof(block->size) - 1);
-    if (_fd_map[fd].offset + size > block_size)
-        size = block_size - _fd_map[fd].offset;
+    if (file->offset + size > block_size)
+        size = block_size - file->offset;
 
-    void *data = ((char *) block) + sizeof(ustar_block_t) + _fd_map[fd].offset;
+    void *data = ((char *) block) + sizeof(ustar_block_t) + file->offset;
     memcpy(buffer, data, size);
-    _fd_map[fd].offset += size;
+    file->offset += size;
 
     return size;
 }
 
-static int _initrd_seek(int fd, size_t offset, seek_mode_t mode)
+static int _initrd_seek(file_t *file, size_t offset, seek_mode_t mode)
 {
-    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].ustar_block == NULL)
-        return -1;
-
-    size_t size = _oct2bin(_fd_map[fd].ustar_block->size, sizeof(_fd_map[fd].ustar_block->size) - 1);
+    ustar_block_t *block = file->internal;
+    size_t size = _oct2bin(block->size, sizeof(block->size) - 1);
     switch (mode) {
     case SEEK_SET:
-        _fd_map[fd].offset = offset;
+        file->offset = offset;
         break;
     case SEEK_CUR:
-        _fd_map[fd].offset += offset;
+        file->offset += offset;
         break;
     case SEEK_END:
-        _fd_map[fd].offset = size + offset;
+        file->offset = size + offset;
         break;
     }
     return 0;
 }
 
-static int _initrd_getdents(int fd, void *buffer, uint32_t size)
+static int _initrd_getdents(file_t *file, void *buffer, uint32_t size)
 {
-    if (fd < 0 || fd >= _fd_map_size || _fd_map[fd].ustar_block == NULL)
-        return -1;
-
-    ustar_block_t *dir_block = _fd_map[fd].ustar_block;
+    ustar_block_t *dir_block = file->internal;
     if (dir_block->flag != USTAR_DIRECTORY)
         return -1;
 
@@ -238,8 +181,8 @@ static int _initrd_getdents(int fd, void *buffer, uint32_t size)
         dir_path_len = len;
     }
 
-    void *base = _fd_map[fd].ustar_base;
-    size_t current_offset = _fd_map[fd].offset;
+    void *base = dir_block;
+    size_t current_offset = file->offset;
 
     /* Initialize offset to the block after the directory if starting */
     if (current_offset == 0) {
@@ -336,21 +279,17 @@ static int _initrd_getdents(int fd, void *buffer, uint32_t size)
         current_offset += 512 + ((file_size + 511) & ~511);
     }
 
-    _fd_map[fd].offset = current_offset;
+    file->offset = current_offset;
 
     return bytes_written;
 }
 
-static int _initrd_getstats(int fd, file_stats_t *stats)
+static int _initrd_getstats(file_t *file, file_stats_t *stats)
 {
-    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].ustar_block == NULL)
-        return -1;
-
-    ustar_block_t *block = _fd_map[fd].ustar_block;
+    ustar_block_t *block = file->internal;
     size_t size = _oct2bin(block->size, sizeof(block->size) - 1);
     stats->size = size;
     stats->type = block->flag == USTAR_DIRECTORY ? DIRECTORY : FILE;
-
     return 0;
 }
 
@@ -362,7 +301,6 @@ int initrd_new_drive(void *data)
 
     new_drive->internal = data;
     new_drive->open = _initrd_open;
-    new_drive->close = _initrd_close;
     new_drive->create = _initrd_create;
     new_drive->remove = _initrd_remove;
     new_drive->write = _initrd_write;
