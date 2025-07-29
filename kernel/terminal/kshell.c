@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/elfloader/loader.h>
 #include <kernel/fs/vfs.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
@@ -151,7 +152,7 @@ static void _pwd(terminal_t *term, int argc, char **)
         term_puts(term, "\n[-] Usage: pwd");
         return;
     }
-    term_printf(term, _current_dir);
+    term_printf(term, "\n%s", _current_dir);
 }
 
 static void _ls(terminal_t *term, int argc, char **)
@@ -318,6 +319,29 @@ static void _rm(terminal_t *term, int argc, char *argv[])
         term_printf(term, "[-] Cannot delete \"%s\"!", argv[1]);
 }
 
+static void _exec(terminal_t *term, int argc, char *argv[])
+{
+    if (argc != 2) {
+        term_puts(term, "\n[-] Usage: rm <file path>");
+        return;
+    }
+
+    char path[PATH_MAX];
+    if (_get_path(argv[1], path, PATH_MAX) < 0) {
+        term_printf(term, "\n[-] Invalid path!");
+        return;
+    }
+
+    file_t file = file_open(path);
+    if (file.internal == NULL) {
+        term_printf(term, "\n [-] Cannot open \"%s\"!", argv[1]);
+        return;
+    }
+
+    if (load_elf(&file) < 0)
+        term_printf(term, "\n[-] Cannot load ELF file \"%s\"!", argv[1]);
+}
+
 void kshell_register_command(const char *name, const char *desc, kshell_command_t cmd)
 {
     _registered_commands[_registered_commands_count++] = (kshell_command_desc_t) {
@@ -339,6 +363,7 @@ void kshell_init()
     kshell_register_command("append", "Append string to the end of the specified file", _append);
     kshell_register_command("cat", "Print the content of the specified file", _cat);
     kshell_register_command("rm", "Remove a specified file", _rm);
+    kshell_register_command("exec", "Execute a program", _exec);
 }
 
 void kshell_launch(terminal_t *term)

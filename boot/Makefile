@@ -1,10 +1,5 @@
-PROJECT_ROOT := $(realpath ..)
-OBJ_DIR := $(PROJECT_ROOT)/$(BUILD_DIR)/obj
-
-# Find all boot source files
 ASM_SRC := $(shell find . -name "*.asm" 2>/dev/null)
 
-# Generate object file paths
 ASM_OBJ := $(patsubst %.asm,$(OBJ_DIR)/boot/%.o,$(ASM_SRC))
 BOOT_OBJ := $(ASM_OBJ)
 

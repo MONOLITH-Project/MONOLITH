@@ -79,11 +79,9 @@ gpg --keyserver keyserver.ubuntu.com --recv-keys B215C1633BCA0477615F1B35A5B3A00
 # Also try GNU keyring as fallback
 echo "[*] Downloading GNU keyring as fallback..."
 # Remove existing keyring if it exists to ensure we get the latest version
-if [ -f "gnu-keyring.gpg" ]; then
-    echo "[*] Removing existing GNU keyring"
-    rm gnu-keyring.gpg
+if [ ! -f "gnu-keyring.gpg" ]; then
+    wget https://ftp.gnu.org/gnu/gnu-keyring.gpg || { echo "[-] Failed to download GNU keyring"; exit 1; }
 fi
-wget https://ftp.gnu.org/gnu/gnu-keyring.gpg || { echo "[-] Failed to download GNU keyring"; exit 1; }
 echo "[*] Importing GNU keyring..."
 gpg --import gnu-keyring.gpg || echo "[-] Warning: Failed to import GNU keyring"
 
@@ -258,4 +256,4 @@ function build_gcc {
     make -j$JOBS all-target-libgcc
     make install-gcc
     make install-target-libgcc
-} 
+}
