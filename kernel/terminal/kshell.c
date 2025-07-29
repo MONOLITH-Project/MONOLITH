@@ -4,6 +4,7 @@
  */
 
 #include <kernel/fs/vfs.h>
+#include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
@@ -14,8 +15,7 @@
 
 static kshell_command_desc_t _registered_commands[KSHELL_COMMANDS_LIMIT];
 static size_t _registered_commands_count = 0;
-static char _current_dir[PATH_MAX] = "/";
-static vfs_drive_t *_current_drive = NULL;
+static char _current_dir[PATH_MAX] = "0:/";
 
 static void _help(terminal_t *term, int argc, char *argv[])
 {
@@ -79,94 +79,35 @@ static void _run_command(terminal_t *term, char *input)
     term_puts(term, "\n[-] Command not found!");
 }
 
-static int _get_path(const char *path, vfs_drive_t **drive, char *full_path, size_t buffer_size)
+/*
+ * This function parses a path string into a full path string, it handles both relative and absolute paths.
+ * It returns 0 on success, -1 on failure.
+ */
+static int _get_path(const char *path, char *full_path, size_t limit)
 {
-    if (path == NULL || *path == '\0')
+    size_t path_len = strlen(path);
+    if (path_len >= limit)
         return -1;
 
-    /* Check if this is a full path */
-    bool is_full_path = false;
-    size_t i = 0;
-    while (path[i] >= '0' && path[i] <= '9')
-        i++;
-
-    if (i > 0 && path[i] == ':' && path[i + 1] == '/')
-        is_full_path = true;
-
-    if (is_full_path) {
-        /* Extract drive number from the path */
-        char drive_num[i + 1];
-        strncpy(drive_num, path, i);
-        drive_num[i] = '\0';
-        *drive = vfs_get_drive((uint8_t) atoi(drive_num));
-        if (*drive == NULL)
-            return -1;
-
-        /* Skip drive number part (X:/) */
-        path += i + 2;
-    } else {
-        *drive = _current_drive;
+    /* Check if path is absolute (contains ":/") */
+    if (strstr(path, ":/") != NULL) {
+        strcpy(full_path, path);
+        return 0;
     }
 
-    char temp[buffer_size];
-    size_t pos = 0;
-    if (!is_full_path) {
-        strcpy(temp, _current_dir);
-        pos = strlen(temp);
-    }
+    /* Check if we need a separator */
+    size_t current_len = strlen(_current_dir);
+    bool need_separator = (current_len > 0 && _current_dir[current_len - 1] != '/')
+                          && (path_len > 0 && path[0] != '/');
+    size_t total_len = current_len + path_len + (need_separator ? 1 : 0);
 
-    /* Process each component of the path */
-    char *component_start = (char *) path;
-    char *component_end;
-    while (*component_start) {
-        while (*component_start == '/')
-            component_start++;
-        if (!*component_start)
-            break;
-
-        /* Find end of component */
-        component_end = component_start;
-        while (*component_end != '\0' && *component_end != '/')
-            component_end++;
-
-        size_t component_len = component_end - component_start;
-
-        /* Handle special components */
-        if (component_len == 2 && component_start[0] == '.' && component_start[1] == '.') {
-            /* ".." - go up one directory */
-            if (pos > 1) { // Make sure we don't go past root
-                pos--;     // Remove trailing slash
-                while (pos > 1 && temp[pos - 1] != '/')
-                    pos--;
-                temp[pos] = '\0';
-            }
-        } else {
-            /* Regular component, append it */
-            if (pos + component_len + 1 >= buffer_size)
-                return -1; // Buffer too small
-
-            if (pos > 1 || temp[0] != '/') // Don't add slash if we're at root
-                temp[pos++] = '/';
-            strncpy(&temp[pos], component_start, component_len);
-            pos += component_len;
-            temp[pos] = '\0';
-        }
-
-        /* Move to next component */
-        component_start = component_end;
-    }
-
-    /* If we ended up with an empty path, make sure it's at least "/" */
-    if (pos == 0) {
-        temp[pos++] = '/';
-        temp[pos] = '\0';
-    }
-
-    /* Copy result to output buffer */
-    if (strlen(temp) >= buffer_size)
+    if (total_len >= limit)
         return -1;
 
-    strcpy(full_path, temp);
+    strcpy(full_path, _current_dir);
+    if (need_separator)
+        strcat(full_path, "/");
+    strcat(full_path, path);
 
     return 0;
 }
@@ -177,34 +118,31 @@ static void _cd(terminal_t *term, int argc, char *argv[])
         term_puts(term, "\n[-] Usage: cd <directory>");
         return;
     }
-    char path[PATH_MAX];
-    vfs_drive_t *drive;
-    if (_get_path(argv[1], &drive, path, PATH_MAX) < 0) {
-        term_puts(term, "\n[-] Invalid directory");
+
+    char full_path[PATH_MAX];
+    if (_get_path(argv[1], full_path, sizeof(full_path)) < 0) {
+        term_printf(term, "\n[-] Failed to get full path for '%s'", argv[1]);
+        return;
     }
 
-    int fd = drive->open(drive, path);
-    if (fd < 0) {
-        term_printf(term, "\n[-] Failed to open '%s'", path);
+    file_t file = file_open(full_path);
+    if (file.internal == NULL) {
+        term_printf(term, "\n[-] Failed to open '%s'", full_path);
         return;
     }
 
     file_stats_t stats;
-    if (drive->getstats(fd, &stats) < 0) {
-        term_printf(term, "\n[-] Failed to get stats for '%s'", path);
-        drive->close(fd);
+    if (file_getstats(&file, &stats) < 0) {
+        term_printf(term, "\n[-] Failed to get stats for '%s'", full_path);
         return;
     }
 
     if (stats.type != DIRECTORY) {
         term_printf(term, "\n[-] '%s' is not a directory", argv[1]);
-        drive->close(fd);
         return;
     }
 
-    drive->close(fd);
-    strcpy(_current_dir, path);
-    _current_drive = drive;
+    strcpy(_current_dir, full_path);
 }
 
 static void _pwd(terminal_t *term, int argc, char **)
@@ -213,7 +151,7 @@ static void _pwd(terminal_t *term, int argc, char **)
         term_puts(term, "\n[-] Usage: pwd");
         return;
     }
-    term_printf(term, "\n%d:%s", _current_drive->id, _current_dir);
+    term_printf(term, _current_dir);
 }
 
 static void _ls(terminal_t *term, int argc, char **)
@@ -222,31 +160,28 @@ static void _ls(terminal_t *term, int argc, char **)
         term_puts(term, "\n[-] Usage: ls");
         return;
     }
-    int fd = _current_drive->open(_current_drive, _current_dir);
-    if (fd < 0) {
+    file_t file = file_open(_current_dir);
+    if (file.internal == NULL) {
         term_printf(term, "\n[-] Failed to open directory '%s'", _current_dir);
         return;
     }
 
     file_stats_t stats;
-    if (_current_drive->getstats(fd, &stats) < 0) {
+    if (file_getstats(&file, &stats) < 0) {
         term_printf(term, "\n[-] Failed to get stats for directory '%s'", _current_dir);
-        _current_drive->close(fd);
         return;
     } else if (stats.type != DIRECTORY) {
         term_printf(term, "\n[-] '%s' is not a directory", _current_dir);
-        _current_drive->close(fd);
         return;
     }
 
     char buffer[4096];
     while (true) {
-        int count = _current_drive->getdents(fd, buffer, sizeof(buffer));
+        int count = file_getdents(&file, buffer, sizeof(buffer));
         if (count == 0)
             break;
         else if (count < 0) {
             term_printf(term, "\n[-] Failed to read directory '%s'", _current_dir);
-            _current_drive->close(fd);
             return;
         }
 
@@ -260,23 +195,21 @@ static void _ls(terminal_t *term, int argc, char **)
             pos += entry->length;
         }
     }
-    _current_drive->close(fd);
 }
 
-static void _touch(terminal_t *term, int argc, char *argv[])
+static void _create(terminal_t *term, int argc, char *argv[])
 {
     if (argc < 2) {
         term_puts(term, "\n[-] Usage: touch <filename>");
         return;
     }
     char path[PATH_MAX];
-    vfs_drive_t *drive;
     for (int i = 0; i < argc - 1; i++) {
-        if (_get_path(argv[i + 1], &drive, path, sizeof(path)) < 0) {
+        if (_get_path(argv[i + 1], path, sizeof(path)) < 0) {
             term_printf(term, "\n[-] Invalid path '%s'", argv[i + 1]);
             continue;
         }
-        if (drive->create(drive, path, FILE) < 0)
+        if (file_create(path, FILE) < 0)
             term_printf(term, "\n[-] Failed to create file '%s'", argv[i + 1]);
     }
 }
@@ -288,7 +221,7 @@ static void _mkdir(terminal_t *term, int argc, char *argv[])
         return;
     }
     for (int i = 0; i < argc - 1; i++) {
-        int result = _current_drive->create(_current_drive, argv[i + 1], DIRECTORY);
+        int result = file_create(argv[i + 1], DIRECTORY);
         if (result < 0)
             term_printf(term, "\n[-] Failed to create directory '%s'", argv[i + 1]);
     }
@@ -301,22 +234,20 @@ static void _append(terminal_t *term, int argc, char *argv[])
         return;
     }
 
-    vfs_drive_t *drive;
     char path[PATH_MAX];
-    if (_get_path(argv[1], &drive, path, PATH_MAX) < 0) {
+    if (_get_path(argv[1], path, sizeof(path)) < 0) {
         term_printf(term, "\n[-] Cannot find \"%s\"!", argv[1]);
         return;
     }
 
-    int fd = drive->open(drive, path);
-    if (fd < 0) {
+    file_t file = file_open(path);
+    if (file.internal == NULL) {
         term_printf(term, "\n[-] Cannot open \"%s\"!", argv[1]);
         return;
     }
-    drive->seek(fd, 0, SEEK_END);
+    file_seek(&file, 0, SEEK_END);
     for (int i = 2; i < argc; i++)
-        drive->write(fd, argv[i], strlen(argv[i]));
-    drive->close(fd);
+        file_write(&file, argv[i], strlen(argv[i]));
 }
 
 static void _cat(terminal_t *term, int argc, char *argv[])
@@ -325,27 +256,25 @@ static void _cat(terminal_t *term, int argc, char *argv[])
         term_puts(term, "\n[-] Usage: cat <file path>");
         return;
     }
-    vfs_drive_t *drive;
     char path[PATH_MAX];
-    if (_get_path(argv[1], &drive, path, PATH_MAX) < 0) {
+    if (_get_path(argv[1], path, PATH_MAX) < 0) {
         term_puts(term, "\n[-] Invalid path!");
         return;
     }
 
-    int fd = drive->open(drive, path);
-    if (fd < 0) {
+    file_t file = file_open(path);
+    if (file.internal == NULL) {
         term_printf(term, "\n[-] Cannot open \"%s\"!", argv[1]);
         return;
     }
 
     char buffer[512];
-    drive->seek(fd, 0, SEEK_SET);
+    file_seek(&file, 0, SEEK_SET);
     term_putc(term, '\n');
     while (true) {
-        int bytes = drive->read(fd, buffer, sizeof(buffer));
+        int bytes = file_read(&file, buffer, sizeof(buffer));
         if (bytes < 0) {
             term_printf(term, "[-] I/O Error!");
-            drive->close(fd);
             return;
         } else if (bytes > 0) {
             for (int i = 0; i < bytes; i++)
@@ -354,7 +283,6 @@ static void _cat(terminal_t *term, int argc, char *argv[])
             return;
         }
     }
-    drive->close(fd);
 }
 
 static void _rm(terminal_t *term, int argc, char *argv[])
@@ -365,32 +293,28 @@ static void _rm(terminal_t *term, int argc, char *argv[])
     }
 
     char path[PATH_MAX];
-    vfs_drive_t *drive;
-    if (_get_path(argv[1], &drive, path, PATH_MAX) < 0) {
+    if (_get_path(argv[1], path, PATH_MAX) < 0) {
         term_printf(term, "\n[-] Invalid path!");
         return;
     }
 
-    int fd = drive->open(drive, path);
-    if (fd < 0) {
+    file_t file = file_open(path);
+    if (file.internal == NULL) {
         term_printf(term, "\n [-] Cannot open \"%s\"!", argv[1]);
         return;
     }
 
     file_stats_t stats;
-    if (drive->getstats(fd, &stats) < 0) {
+    if (file_getstats(&file, &stats) < 0) {
         term_printf(term, "\n[-] Cannot get stats for \"%s\"!", argv[1]);
-        drive->close(fd);
         return;
     }
     if (stats.type == DIRECTORY) {
         term_printf(term, "\n[-] \"%s\" is a directory!", argv[1]);
-        drive->close(fd);
         return;
     }
 
-    drive->close(fd);
-    if (drive->remove(drive, path) < 0)
+    if (file_remove(argv[1]) < 0)
         term_printf(term, "[-] Cannot delete \"%s\"!", argv[1]);
 }
 
@@ -410,12 +334,11 @@ void kshell_init()
     kshell_register_command("cd", "Change directory", _cd);
     kshell_register_command("pwd", "Print current working directory", _pwd);
     kshell_register_command("ls", "List directory contents", _ls);
-    kshell_register_command("touch", "Create a new file", _touch);
+    kshell_register_command("create", "Create a new file", _create);
     kshell_register_command("mkdir", "Create a new directory", _mkdir);
     kshell_register_command("append", "Append string to the end of the specified file", _append);
     kshell_register_command("cat", "Print the content of the specified file", _cat);
     kshell_register_command("rm", "Remove a specified file", _rm);
-    _current_drive = vfs_get_drive(0);
 }
 
 void kshell_launch(terminal_t *term)

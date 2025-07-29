@@ -29,7 +29,7 @@ int vfs_new_drive(vfs_drive_t *drive)
     return 1;
 }
 
-vfs_drive_t *vfs_get_drive(uint8_t id)
+static vfs_drive_t *_vfs_get_drive(uint8_t id)
 {
     if (id >= _drives_count || _drives_map[id] == NULL)
         return NULL;
@@ -130,4 +130,147 @@ vfs_node_t *vfs_get_relative_path(vfs_node_t *base, const char *path)
     }
 
     return current;
+}
+
+/*
+ * Parse the full path into drive and path components.
+ */
+static int _get_path(const char *full_path, vfs_drive_t **drive, char *path, size_t buffer_size)
+{
+    if (full_path == NULL || *full_path == '\0')
+        return -1;
+
+    /* Check if this is a full path */
+    size_t i = 0;
+    while (full_path[i] >= '0' && full_path[i] <= '9')
+        i++;
+
+    if (i == 0 || full_path[i] != ':' || full_path[i + 1] != '/')
+        return -1; // Only full paths are supported
+
+    /* Extract drive number from the path */
+    char drive_num[i + 1];
+    strncpy(drive_num, full_path, i);
+    drive_num[i] = '\0';
+    *drive = _vfs_get_drive((uint8_t) atoi(drive_num));
+    if (*drive == NULL)
+        return -1;
+
+    /* Skip drive number part (X:/) */
+    full_path += i + 2;
+
+    char temp[buffer_size];
+    size_t pos = 0;
+
+    /* Process each component of the path */
+    char *component_start = (char *) full_path;
+    char *component_end;
+    while (*component_start) {
+        while (*component_start == '/')
+            component_start++;
+        if (!*component_start)
+            break;
+
+        /* Find end of component */
+        component_end = component_start;
+        while (*component_end != '\0' && *component_end != '/')
+            component_end++;
+
+        size_t component_len = component_end - component_start;
+
+        /* Handle special components */
+        if (component_len == 2 && component_start[0] == '.' && component_start[1] == '.') {
+            /* ".." - go up one directory */
+            if (pos > 1) { // Make sure we don't go past root
+                pos--;     // Remove trailing slash
+                while (pos > 1 && temp[pos - 1] != '/')
+                    pos--;
+                temp[pos] = '\0';
+            }
+        } else {
+            /* Regular component, append it */
+            if (pos + component_len + 1 >= buffer_size)
+                return -1; // Buffer too small
+
+            if (pos > 1 || temp[0] != '/') // Don't add slash if we're at root
+                temp[pos++] = '/';
+            strncpy(&temp[pos], component_start, component_len);
+            pos += component_len;
+            temp[pos] = '\0';
+        }
+
+        /* Move to next component */
+        component_start = component_end;
+    }
+
+    /* If we ended up with an empty path, make sure it's at least "/" */
+    if (pos == 0) {
+        temp[pos++] = '/';
+        temp[pos] = '\0';
+    }
+
+    /* Copy result to output buffer */
+    if (strlen(temp) >= buffer_size)
+        return -1;
+
+    strcpy(path, temp);
+
+    return 0;
+}
+
+file_t file_open(const char *full_path)
+{
+    vfs_drive_t *drive = NULL;
+    char path[PATH_MAX];
+    if (_get_path(full_path, &drive, path, sizeof(path)) < 0)
+        return (file_t) {0};
+    return drive->open((struct vfs_drive *) drive, path);
+}
+
+int file_create(const char *full_path, file_type_t type)
+{
+    vfs_drive_t *drive = NULL;
+    char path[PATH_MAX];
+    if (_get_path(full_path, &drive, path, sizeof(path)) < 0)
+        return -1;
+    return drive->create((struct vfs_drive *) drive, path, type);
+}
+
+int file_remove(const char *full_path)
+{
+    vfs_drive_t *drive = NULL;
+    char path[PATH_MAX];
+    if (_get_path(full_path, &drive, path, sizeof(path)) < 0)
+        return -1;
+    return drive->remove((struct vfs_drive *) drive, path);
+}
+
+int file_read(file_t *file, void *buffer, uint32_t size)
+{
+    return ( file->drive)->read(file, buffer, size);
+}
+
+int file_write(file_t *file, const void *buffer, uint32_t size)
+{
+    return file->drive->write(file, buffer, size);
+}
+
+int file_seek(file_t *file, size_t offset, seek_mode_t mode)
+{
+    return file->drive->seek(file, offset, mode);
+}
+
+int file_getdents(file_t *file, void *buffer, uint32_t size)
+{
+    return file->drive->getdents(file, buffer, size);
+}
+
+int file_getstats(file_t *file, file_stats_t *stats)
+{
+    return file->drive->getstats(file, stats);
+}
+
+size_t file_tell(file_t *file)
+{
+    return file->drive->tell(file);
 }

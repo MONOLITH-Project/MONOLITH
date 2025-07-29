@@ -1,5 +1,0 @@
-CompileFlags:
-  Add: [-std=c99, -Wall, -Wextra, -xc, -I/home/mrunix/Projects/MONOLITH/]
-
-Index:
-  Background: Build

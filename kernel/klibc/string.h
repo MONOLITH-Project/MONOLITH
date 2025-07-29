@@ -14,6 +14,7 @@ char *strcpy(char *dest, const char *src);
 char *strncpy(char *dest, const char *src, size_t n);
 char *strcat(char *dest, const char *src);
 char *strncat(char *dst, const char *src, size_t ssize);
+char *strstr(const char *str, const char *substr);
 size_t strlen(const char *s);
 unsigned long atoul(const char *str);
 size_t atox(const char *hex);

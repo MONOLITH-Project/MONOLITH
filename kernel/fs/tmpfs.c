@@ -12,26 +12,17 @@
 
 typedef struct
 {
+    vfs_node_t vnode;
     size_t size;
     void *data;
 } _tmpfs_inode_t;
 
-typedef struct
-{
-    vfs_node_t *vnode;
-    size_t offset;
-} _tmpfs_fd_t;
-
-static _tmpfs_fd_t *_fd_map = NULL;
-static int _fd_map_size = 0;
-
-static vfs_node_t *_new_tmpfs_node(vfs_drive_t *drive, file_type_t type)
+static vfs_node_t *_new_tmpfs_node(file_type_t type)
 {
     vfs_node_t *new_node = kmalloc(sizeof(vfs_node_t));
     if (new_node == NULL)
         return NULL;
     new_node->name = NULL;
-    new_node->drive = drive;
     new_node->type = type;
     new_node->internal = kmalloc(sizeof(_tmpfs_inode_t));
     if (new_node->internal == NULL) {
@@ -81,14 +72,14 @@ static int _tmpfs_create(struct vfs_drive *drive, const char *name, file_type_t 
         }
     }
 
-    vfs_node_t *parent = vfs_get_relative_path(drive->internal, parent_path);
+    vfs_node_t *parent = vfs_get_relative_path(((vfs_drive_t *) drive)->internal, parent_path);
     kfree(parent_path);
 
     if (!parent || parent->type != DIRECTORY) {
         return -1;
     }
 
-    vfs_node_t *new_node = _new_tmpfs_node(drive, type);
+    vfs_node_t *new_node = _new_tmpfs_node(type);
     if (!new_node)
         return -1;
 
@@ -105,23 +96,21 @@ static int _tmpfs_create(struct vfs_drive *drive, const char *name, file_type_t 
     return 0;
 }
 
-static int _tmpfs_getdents(int fd, void *buffer, uint32_t size)
+static int _tmpfs_getdents(file_t *file, void *buffer, uint32_t size)
 {
-    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
-        return -1;
-    if (_fd_map[fd].vnode->type != DIRECTORY)
+    if (((vfs_node_t *) file->internal)->type != DIRECTORY)
         return -1;
 
-    vfs_node_t *current_file = _fd_map[fd].vnode->child;
+    vfs_node_t *current_file = ((vfs_node_t *) file->internal)->child;
     uint32_t buffer_offset = 0;
     size_t current_offset = 0;
 
-    // Skip entries that are entirely before the offset
+    /* Skip entries that are entirely before the offset */
     while (current_file != NULL) {
         size_t name_len = strlen(current_file->name) + 1;
         size_t entry_size = sizeof(dir_entry_t) + name_len;
 
-        if (current_offset + entry_size <= _fd_map[fd].offset) {
+        if (current_offset + entry_size <= file->offset) {
             current_offset += entry_size;
             current_file = current_file->sibling;
         } else {
@@ -129,18 +118,18 @@ static int _tmpfs_getdents(int fd, void *buffer, uint32_t size)
         }
     }
 
-    // Skip partially read entries (offset falls in the middle)
+    /* Skip partially read entries (offset falls in the middle) */
     if (current_file != NULL) {
         size_t name_len = strlen(current_file->name) + 1;
         size_t entry_size = sizeof(dir_entry_t) + name_len;
 
-        if (current_offset < _fd_map[fd].offset) {
+        if (current_offset < file->offset) {
             current_offset += entry_size;
             current_file = current_file->sibling;
         }
     }
 
-    // Read directory entries
+    /* Read directory entries */
     while (current_file != NULL) {
         size_t name_len = strlen(current_file->name) + 1;
         size_t entry_size = sizeof(dir_entry_t) + name_len;
@@ -159,8 +148,8 @@ static int _tmpfs_getdents(int fd, void *buffer, uint32_t size)
         current_file = current_file->sibling;
     }
 
-    // Update the offset for the next read
-    _fd_map[fd].offset = current_offset;
+    /* Update the offset for the next read */
+    file->offset = current_offset;
 
     return buffer_offset;
 }
@@ -180,125 +169,83 @@ static int _tmpfs_remove(struct vfs_drive *drive, const char *name)
     return 0;
 }
 
-static int _tmpfs_open(struct vfs_drive *drive, const char *path)
+static file_t _tmpfs_open(struct vfs_drive *drive, const char *path)
 {
-    vfs_node_t *file = vfs_get_relative_path(((vfs_drive_t *) drive)->internal, path);
-    if (!file)
-        return -1;
+    vfs_node_t *vnode = vfs_get_relative_path(((vfs_drive_t *) drive)->internal, path);
+    if (!vnode)
+        return (file_t) {0};
 
-    /* Initialize the file descriptor map */
-    if (_fd_map == NULL) {
-        _fd_map = kmalloc(10 * sizeof(_tmpfs_fd_t));
-        if (_fd_map == NULL)
-            return -1;
-        _fd_map_size = 10;
-        memset(_fd_map, 0, _fd_map_size * sizeof(_tmpfs_fd_t));
-    }
-
-    /* Look for empty entries in the file descriptor map */
-    int i;
-    for (i = 0; i < _fd_map_size; i++) {
-        if (_fd_map[i].vnode == NULL) {
-            _fd_map[i].vnode = file;
-            _fd_map[i].offset = 0;
-            return i;
-        }
-    }
-
-    /* If none are found, expand its size */
-    _tmpfs_fd_t *new_map = krealloc(_fd_map, _fd_map_size * 2);
-    if (new_map == NULL)
-        return -1;
-    _fd_map = new_map;
-    for (int j = i; j < i * 2; j++)
-        _fd_map[j] = (_tmpfs_fd_t) {.offset = 0, .vnode = NULL};
-    _fd_map_size *= 2;
-
-    _fd_map[i] = (_tmpfs_fd_t) {.offset = 0, .vnode = file};
-    return 0;
+    return (file_t) {
+        .drive = drive,
+        .internal = vnode,
+        .offset = 0,
+    };
 }
 
-static int _tmpfs_close(int fd)
+static int _tmpfs_write(file_t *file, const void *buffer, uint32_t size)
 {
-    if (fd > _fd_map_size)
-        return -1;
-    _fd_map[fd] = (_tmpfs_fd_t) {.offset = 0, .vnode = NULL};
-    return 0;
-}
-
-static int _tmpfs_write(int fd, const void *buffer, uint32_t size)
-{
-    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
-        return -1;
-
-    _tmpfs_inode_t *inode = _fd_map[fd].vnode->internal;
-    if (inode->size < _fd_map[fd].offset + size) {
-        void *new_data = krealloc(inode->data, _fd_map[fd].offset + size);
+    _tmpfs_inode_t *inode = ((vfs_node_t *) file->internal)->internal;
+    if (inode->size < file->offset + size) {
+        void *new_data = krealloc(inode->data, file->offset + size);
         if (new_data == NULL)
             return -1;
         inode->data = new_data;
-        inode->size = _fd_map[fd].offset + size;
+        inode->size = file->offset + size;
     }
 
-    memcpy(inode->data + _fd_map[fd].offset, buffer, size);
-    _fd_map[fd].offset += size;
+    memcpy(inode->data + file->offset, buffer, size);
+    file->offset += size;
     return size;
 }
 
-static int _tmpfs_read(int fd, void *buffer, uint32_t size)
+static int _tmpfs_read(file_t *file, void *buffer, uint32_t size)
 {
-    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
-        return -1;
+    _tmpfs_inode_t *inode = file->internal;
+    if (file->offset + size > inode->size)
+        size = inode->size - file->offset;
 
-    _tmpfs_inode_t *inode = _fd_map[fd].vnode->internal;
-    if (_fd_map[fd].offset + size > inode->size)
-        size = inode->size - _fd_map[fd].offset;
-
-    memcpy(buffer, inode->data + _fd_map[fd].offset, size);
-    _fd_map[fd].offset += size;
+    memcpy(buffer, inode->data + file->offset, size);
+    file->offset += size;
     return size;
 }
 
-static int _tmpfs_seek(int fd, size_t offset, seek_mode_t mode)
+static int _tmpfs_seek(file_t *file, size_t offset, seek_mode_t mode)
 {
-    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
-        return -1;
-
-    _tmpfs_inode_t *inode = _fd_map[fd].vnode->internal;
+    _tmpfs_inode_t *inode = file->internal;
     switch (mode) {
     case SEEK_SET:
-        _fd_map[fd].offset = offset;
+        file->offset = offset;
         break;
     case SEEK_CUR:
-        _fd_map[fd].offset += offset;
+        file->offset += offset;
         break;
     case SEEK_END:
-        _fd_map[fd].offset = inode->size + offset;
+        file->offset = inode->size + offset;
         break;
     }
     return 0;
 }
 
-int _tmpfs_getstats(int fd, file_stats_t *stats)
+int _tmpfs_getstats(file_t *file, file_stats_t *stats)
 {
-    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
+    if (file->internal == NULL)
         return -1;
 
-    _tmpfs_inode_t *inode = _fd_map[fd].vnode->internal;
+    _tmpfs_inode_t *inode = file->internal;
     *stats = (file_stats_t) {
         .size = inode->size,
-        .type = _fd_map[fd].vnode->type,
+        .type = inode->vnode.type,
     };
 
     return 0;
 }
 
-static size_t _tmpfs_tell(int fd)
+static size_t _tmpfs_tell(file_t *file)
 {
-    if (fd > _fd_map_size || fd < 0 || _fd_map[fd].vnode == NULL)
+    if (file->internal == NULL)
         return -1;
 
-    return _fd_map[fd].offset;
+    return file->offset;
 }
 
 int tmpfs_new_drive()
@@ -307,7 +254,7 @@ int tmpfs_new_drive()
     if (new_drive == NULL)
         return -1;
 
-    new_drive->internal = _new_tmpfs_node(new_drive, DIRECTORY);
+    new_drive->internal = _new_tmpfs_node(DIRECTORY);
     if (!new_drive->internal)
         goto failure;
 
@@ -317,7 +264,6 @@ int tmpfs_new_drive()
     new_drive->create = _tmpfs_create;
     new_drive->remove = _tmpfs_remove;
     new_drive->open = _tmpfs_open;
-    new_drive->close = _tmpfs_close;
     new_drive->write = _tmpfs_write;
     new_drive->read = _tmpfs_read;
     new_drive->seek = _tmpfs_seek;

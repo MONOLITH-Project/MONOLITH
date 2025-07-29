@@ -75,6 +75,24 @@ size_t strlen(const char *s)
     return len;
 }
 
+char *strstr(const char *str, const char *substr)
+{
+    if (*substr == '\0')
+        return (char *) str;
+    while (*str != '\0') {
+        const char *s1 = str;
+        const char *s2 = substr;
+        while (*s1 == *s2 && *s2 != '\0') {
+            s1++;
+            s2++;
+        }
+        if (*s2 == '\0')
+            return (char *) str;
+        str++;
+    }
+    return NULL;
+}
+
 unsigned long atoul(const char *str)
 {
     unsigned long num = 0;
