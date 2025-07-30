@@ -9,6 +9,13 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+typedef enum {
+    PTFLAG_XD = 1 << 63, /* Execute Disable */
+    PTFLAG_US = 1 << 2,  /* User/Supervisor */
+    PTFLAG_RW = 1 << 1,  /* Read/Write */
+    PTFLAG_P = 1 << 0,   /* Present */
+} pt_flags_t;
+
 /*
  * Initialize the virtual memory manager.
  */

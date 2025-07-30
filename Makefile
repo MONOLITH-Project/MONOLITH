@@ -17,9 +17,10 @@ ifeq (, $(GRUB_MKRESCUE))
 endif
 
 # Directories
-BUILD_DIR := build
+BUILD_DIR := $(abspath build)
 ISO_DIR := $(BUILD_DIR)/isodir
 OBJ_DIR := $(BUILD_DIR)/obj
+INITRD_DIR := $(BUILD_DIR)/initrd
 
 # Arch detection and tracking
 ARCH_FILE := $(BUILD_DIR)/.arch
@@ -40,7 +41,7 @@ INITRD_TAR := $(BUILD_DIR)/initrd.tar
 ISO_FILE := $(BUILD_DIR)/myos.iso
 
 # Export variables for submakes
-export BUILD_DIR TOOLCHAIN_BIN TOOLCHAIN_DIR TOOLCHAIN_BASE_DIR ARCH CROSS_PREFIX CPU_ARCH
+export BUILD_DIR TOOLCHAIN_BIN TOOLCHAIN_DIR TOOLCHAIN_BASE_DIR ARCH CROSS_PREFIX CPU_ARCH INITRD_DIR
 
 # Compiler and linker flags
 CFLAGS := -g -ffreestanding -Wall -Wextra -I./ -std=c99 -fno-stack-protector -fno-stack-check -fno-PIC
@@ -53,7 +54,7 @@ LDFLAGS += -T boot/pc/$(CPU_ARCH)/linker.ld -nostdlib -z max-page-size=0x1000 -s
 FLANTERM_SOURCES := libs/flanterm/flanterm.c libs/flanterm/backends/fb.c
 FLANTERM_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(FLANTERM_SOURCES))
 
-.PHONY: all clean toolchain iso run run-debug kernel test flanterm initrd
+.PHONY: all clean toolchain iso run run-debug kernel test flanterm initrd userspace
 
 # Default target
 all: | $(BUILD_DIR)
@@ -61,6 +62,7 @@ all: | $(BUILD_DIR)
 	$(MAKE) kernel
 	$(MAKE) boot
 	$(MAKE) flanterm
+	$(MAKE) userspace
 	$(MAKE) initrd
 	$(MAKE) $(KERNEL_BIN)
 	$(MAKE) $(ISO_FILE)
@@ -103,10 +105,24 @@ coverage-report:
 $(KERNEL_BIN): kernel flanterm | toolchain
 	$(LD) $(LDFLAGS) -o $@ $(shell find $(OBJ_DIR) -type f -name "*.o")
 
+# Build userspace programs
+userspace: | $(BUILD_DIR) $(INITRD_DIR)
+	@if [ ! -f "$(CC)" ] || [ ! -f "$(LD)" ]; then \
+		echo "Toolchain not found. Building it first..."; \
+		$(MAKE) toolchain; \
+	fi
+	$(MAKE) -C userspace BUILD_DIR=$(BUILD_DIR) TOOLCHAIN_BIN=$(TOOLCHAIN_BASE_DIR)/$(CPU_ARCH)/bin \
+		TOOLCHAIN_DIR=$(TOOLCHAIN_BASE_DIR)/$(CPU_ARCH) CPU_ARCH=$(CPU_ARCH) \
+		CROSS_PREFIX=$(CROSS_PREFIX) INITRD_DIR=$(INITRD_DIR)
+
+# Create initrd directory
+$(INITRD_DIR): | $(BUILD_DIR)
+	@mkdir -p $(INITRD_DIR)
+
 # Create initrd tarball in ustar format
-initrd: | $(BUILD_DIR)
+initrd: $(INITRD_DIR) | $(BUILD_DIR)
 	@echo "Creating initrd archive in ustar format..."
-	tar --format=ustar -cf $(INITRD_TAR) -C initrd .
+	tar --format=ustar -cf $(INITRD_TAR) -C $(INITRD_DIR) .
 
 # Create ISO
 $(ISO_FILE): $(KERNEL_BIN) $(INITRD_TAR)
@@ -142,6 +158,7 @@ run-debug-headless: all
 # Clean build artifacts but keep toolchain
 clean:
 	$(MAKE) -C kernel clean
+	$(MAKE) -C userspace clean
 	rm -rf $(BUILD_DIR)
 
 # Clean everything including toolchain

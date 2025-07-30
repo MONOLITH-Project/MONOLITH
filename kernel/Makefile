@@ -1,5 +1,4 @@
-PROJECT_ROOT := $(realpath ..)
-OBJ_DIR := $(PROJECT_ROOT)/$(BUILD_DIR)/obj
+OBJ_DIR := $(BUILD_DIR)/obj
 
 # Note: CPU_ARCH and CROSS_PREFIX are now imported from parent Makefile
 # No need to recompute them here
