@@ -14,10 +14,12 @@ For all code formatting, all code should follow the format specified in `.clang-
 ```c
 int my_variable;
 void my_function() {}
-typedef struct {
+typedef struct
+{
     int my_field;
 } my_struct_t;
-typedef enum {
+typedef enum
+{
     MY_ENUM_1,
     MY_ENUM_2,
 } my_enum_t;
@@ -49,7 +51,8 @@ typedef enum {
 ```c
 int count;
 void print_error_message() {}
-typedef struct {
+typedef struct
+{
     int value;
 } device_descriptor_t;
 ```

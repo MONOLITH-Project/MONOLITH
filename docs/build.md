@@ -20,6 +20,12 @@ sudo pacman -S base-devel qemu-desktop flex texinfo grub nasm libmpc gmp mpfr li
 sudo apt install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo libisl-dev nasm qemu-system xorriso mtools grub-pc-bin grub-common
 ```
 
+### NixOS
+
+```console
+nix develop --extra-experimental-features 'nix-command flakes'
+```
+
 ## Clone the repository
 
 ```console

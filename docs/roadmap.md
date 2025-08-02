@@ -55,11 +55,10 @@
 
 ## User Mode & Process Management
 
-- [ ] Loading user programs.
+- [x] Loading user programs.
 - [ ] System calls.
 - [ ] Task scheduler.
 - [ ] Run programs in userspace.
-- [ ] Multi-tasking.
 
 ## Architecture support
 
