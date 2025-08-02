@@ -8,11 +8,24 @@
 #include <libs/limine/limine.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
-typedef enum {
+/*
+ * Page table flags for x86_64.
+ * Check Intel's x86 Developer Manual Volume 3A, Section 5.5.4, Table 5-20.
+ * https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html
+ */
+typedef enum : uint64_t {
     PTFLAG_XD = 1 << 63, /* Execute Disable */
-    PTFLAG_US = 1 << 2,  /* User/Supervisor */
-    PTFLAG_RW = 1 << 1,  /* Read/Write */
+    PTFLAG_R = 1 << 11,  /* Restart HLAT Paging (See Intel's x86 Manual Volume 3A, Section 5.5.5) */
+    PTFLAG_G = 1 << 8,   /* Global (See Intel's x86 Manual Volume 3A, Section 5.10) */
+    PTFLAG_PAT = 1 << 7, /* Page Attribute Table (See Intel's x86 Manual Volume 3A, Section 5.9.2) */
+    PTFLAG_D = 1 << 6,   /* Dirty (See Intel's x86 Manual Volume 3A, Section 5.8) */
+    PTFLAG_A = 1 << 5,   /* Accessed (See Intel's x86 Manual Volume 3A, Section 5.8) */
+    PTFLAG_PCD = 1 << 4, /* Page Cache Disable (See Intel's x86 Manual Volume 3A, Section 5.9.2) */
+    PTFLAG_PWT = 1 << 3, /* Page Write Through (See Intel's x86 Manual Volume 3A, Section 5.9.2) */
+    PTFLAG_US = 1 << 2,  /* User/Supervisor (See Intel's x86 Manual Volume 3A, Section 5.6) */
+    PTFLAG_RW = 1 << 1,  /* Read/Write (See Intel's x86 Manual Volume 3A, Section 5.6) */
     PTFLAG_P = 1 << 0,   /* Present */
 } pt_flags_t;
 

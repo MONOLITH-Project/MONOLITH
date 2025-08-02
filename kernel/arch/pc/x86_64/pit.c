@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/pit.h>
-#include <kernel/klibc/io.h>
 #include <stdint.h>
 
 #define PIT_CHANNEL0_PORT 0x40
@@ -18,17 +18,17 @@ uint16_t pit_get_count()
 {
     uint16_t count;
 
-    outb(0x0, PIT_COMMAND_PORT);          /* Channels in bits 6 and 7 */
-    count = inb(PIT_CHANNEL0_PORT);       /* Low byte */
-    count |= inb(PIT_CHANNEL0_PORT) << 8; /* High byte */
+    asm_outb(0x0, PIT_COMMAND_PORT);          /* Channels in bits 6 and 7 */
+    count = asm_inb(PIT_CHANNEL0_PORT);       /* Low byte */
+    count |= asm_inb(PIT_CHANNEL0_PORT) << 8; /* High byte */
 
     return count;
 }
 
 void pit_set_reload(uint16_t count)
 {
-    outb(count & 0xFF, PIT_CHANNEL0_PORT);          /* Low byte */
-    outb((count & 0xFF00) >> 8, PIT_CHANNEL0_PORT); /* High byte */
+    asm_outb(count & 0xFF, PIT_CHANNEL0_PORT);          /* Low byte */
+    asm_outb((count & 0xFF00) >> 8, PIT_CHANNEL0_PORT); /* High byte */
 }
 
 void pit_set_frequency(uint16_t frequency)

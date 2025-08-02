@@ -10,9 +10,19 @@
 
 #define PAGE_SIZE 4096
 
+/*
+ * Aligns a given address to the nearest higher page boundary.
+ */
 #define PAGE_UP(x) (((x) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
+
+/*
+ * Aligns a given address to the nearest lower page boundary.
+ */
 #define PAGE_DOWN(x) ((x) & ~(PAGE_SIZE - 1))
 
+/*
+ * Physical memory statistics and information.
+ */
 typedef struct
 {
     size_t total_memory;

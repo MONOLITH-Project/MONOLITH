@@ -1,4 +1,9 @@
-#include <kernel/klibc/io.h>
+/*
+ * Copyright (c) 2025, Ibrahim KAIKAA <ibrahimkaikaa@gmail.com>
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+#include <kernel/arch/pc/asm.h>
 #include <kernel/klibc/string.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -13,16 +18,16 @@ static void _pause(int units)
 
 static void _speaker_on()
 {
-    uint8_t tmp = inb(0x61);
+    uint8_t tmp = asm_inb(0x61);
     if (tmp != (tmp | 3)) {
-        outb(tmp | 3, 0x61);
+        asm_outb(tmp | 3, 0x61);
     }
 }
 
 static void _speaker_off()
 {
-    uint8_t tmp = inb(0x61) & 0xFC;
-    outb(tmp, 0x61);
+    uint8_t tmp = asm_inb(0x61) & 0xFC;
+    asm_outb(tmp, 0x61);
 }
 
 static void _morse_dot()

@@ -17,7 +17,7 @@ static vfs_drive_t *_drives_map[MAX_DRIVE_COUNT] = {0};
 int vfs_new_drive(vfs_drive_t *drive)
 {
     if (_drives_count >= MAX_DRIVE_COUNT)
-        return 0;
+        return -1;
     uint8_t index;
     for (index = 0; index < MAX_DRIVE_COUNT; index++) {
         if (_drives_map[index] == NULL)
@@ -26,7 +26,7 @@ int vfs_new_drive(vfs_drive_t *drive)
     drive->id = index;
     _drives_map[index] = drive;
     _drives_count++;
-    return 1;
+    return index;
 }
 
 static vfs_drive_t *_vfs_get_drive(uint8_t id)

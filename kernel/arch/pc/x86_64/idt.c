@@ -6,7 +6,6 @@
 #include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/arch/pc/morse_debug.h>
-#include <kernel/klibc/io.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
 #include <kernel/serial.h>
@@ -131,16 +130,16 @@ void idt_init()
     memset(&_idt_entries, 0, sizeof(_idt_entries));
 
     // Remap the PIC
-    outb(0x11, 0x20);
-    outb(0x11, 0xA0);
-    outb(0x20, 0x21);
-    outb(0x28, 0xA1);
-    outb(0x04, 0x21);
-    outb(0x02, 0xA1);
-    outb(0x01, 0x21);
-    outb(0x01, 0xA1);
-    outb(0x00, 0x21);
-    outb(0x00, 0xA1);
+    asm_outb(0x11, 0x20);
+    asm_outb(0x11, 0xA0);
+    asm_outb(0x20, 0x21);
+    asm_outb(0x28, 0xA1);
+    asm_outb(0x04, 0x21);
+    asm_outb(0x02, 0xA1);
+    asm_outb(0x01, 0x21);
+    asm_outb(0x01, 0xA1);
+    asm_outb(0x00, 0x21);
+    asm_outb(0x00, 0xA1);
 
     idt_set_gate(0, (void *) _isr0);
     idt_set_gate(1, (void *) _isr1);
@@ -256,9 +255,9 @@ static const char *error_messages[] = {
 void isr_handler(struct interrupt_registers *regs)
 {
     if (regs->isr_number < 32) {
-        uint8_t tmp = inb(0x61);
+        uint8_t tmp = asm_inb(0x61);
         if (tmp != (tmp | 3)) {
-            outb(tmp | 3, 0x61);
+            asm_outb(tmp | 3, 0x61);
         }
         debug_log_fmt("[-] System panic!\n");
         switch (regs->isr_number) {
@@ -305,12 +304,9 @@ void irq_unregister_handler(const uint8_t irq)
 void irq_handler(struct interrupt_registers *reg)
 {
     void (*handler)(struct interrupt_registers *) = _irq_routines[reg->isr_number - 32];
-    if (handler) {
+    if (handler)
         handler(reg);
-    }
-
-    if (reg->isr_number >= 40) {
-        outb(0x20, 0xA0);
-    }
-    outb(0x20, 0x20);
+    if (reg->isr_number >= 40)
+        asm_outb(0x20, 0xA0);
+    asm_outb(0x20, 0x20);
 }

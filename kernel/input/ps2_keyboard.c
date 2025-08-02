@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/input/ps2_keyboard.h>
-#include <kernel/klibc/io.h>
 #include <kernel/klibc/memory.h>
 
 #define PS2_DATA_PORT 0x60
@@ -21,9 +21,9 @@ static ps2_action_t _latest_action;
 static void _ps2_irq()
 {
     _something_happened = true;
-    while ((inb(PS2_STATUS_PORT) & 0x01) == 0)
+    while ((asm_inb(PS2_STATUS_PORT) & 0x01) == 0)
         ;
-    _latest_event = (ps2_event_t) {.raw = inb(PS2_DATA_PORT)};
+    _latest_event = (ps2_event_t) {.raw = asm_inb(PS2_DATA_PORT)};
 
     if (_latest_event.released) {
         _key_state[_latest_event.scancode] = KEYBOARD_RELEASED;
@@ -62,10 +62,10 @@ ps2_event_t ps2_wait_for_event()
         _capslock_on = !_capslock_on;
 
         /* Toggle Caps Lock LED */
-        outb(0xED, PS2_COMMAND_PORT);
-        while (inb(PS2_STATUS_PORT) & 0x01)
-            inb(PS2_DATA_PORT);
-        outb(0x04, PS2_DATA_PORT);
+        asm_outb(0xED, PS2_COMMAND_PORT);
+        while (asm_inb(PS2_STATUS_PORT) & 0x01)
+            asm_inb(PS2_DATA_PORT);
+        asm_outb(0x04, PS2_DATA_PORT);
     }
 
     return _latest_event;
@@ -88,8 +88,8 @@ ps2_action_t ps2_get_key_state(ps2_scancode_t scancode)
 
 void ps2_init_keyboard()
 {
-    while (inb(PS2_STATUS_PORT) & 0x01)
-        inb(PS2_DATA_PORT);
+    while (asm_inb(PS2_STATUS_PORT) & 0x01)
+        asm_inb(PS2_DATA_PORT);
     irq_register_handler(1, _ps2_irq);
     memset(_key_state, KEYBOARD_RELEASED, sizeof(_key_state));
 }

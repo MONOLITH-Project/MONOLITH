@@ -258,7 +258,7 @@ int tmpfs_new_drive()
     if (!new_drive->internal)
         goto failure;
 
-    if (!vfs_new_drive(new_drive))
+    if (vfs_new_drive(new_drive) < 0)
         goto failure;
 
     new_drive->create = _tmpfs_create;

@@ -27,3 +27,16 @@ global asm_hlt
 asm_hlt:
     hlt
     ret
+
+global asm_outb
+asm_outb:
+    mov al, dil
+    mov dx, si
+    out dx, al
+    ret
+
+global asm_inb
+asm_inb:
+    mov dx, di
+    in al, dx
+    ret

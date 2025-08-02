@@ -309,7 +309,7 @@ int initrd_new_drive(void *data)
     new_drive->getdents = _initrd_getdents;
     new_drive->getstats = _initrd_getstats;
 
-    if (!vfs_new_drive(new_drive))
+    if (vfs_new_drive(new_drive) < 0)
         goto failure;
 
     return new_drive->id;

@@ -9,20 +9,36 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/*
+ * ELF magic number (0x7F followed by 'ELF' in ASCII).
+ * https://wiki.osdev.org/ELF#ELF_Header
+ */
 #define ELF_MAGIC \
     "\x7f" \
     "ELF"
 
+/*
+ * ELF format (32-bit or 64-bit).
+ * https://wiki.osdev.org/ELF#ELF_Header
+ */
 typedef enum : uint8_t {
     ELF_FORMAT_32BIT = 1,
     ELF_FORMAT_64BIT = 2,
 } elf_format_t;
 
+/*
+ * ELF endianess (little or big endian).
+ * https://wiki.osdev.org/ELF#ELF_Header
+ */
 typedef enum : uint8_t {
     ELF_LITTLE_ENDIAN = 1,
     ELF_BIG_ENDIAN = 2,
 } elf_endian_t;
 
+/*
+ * ELF type (none, relocatable, executable, dynamic, core).
+ * https://wiki.osdev.org/ELF#ELF_Header
+ */
 typedef enum : uint16_t {
     ELF_TYPE_NONE = 0,
     ELF_TYPE_REL = 1,
@@ -31,6 +47,10 @@ typedef enum : uint16_t {
     ELF_TYPE_CORE = 4,
 } elf_type_t;
 
+/*
+ * ELF instruction set architecture (ISA).
+ * https://wiki.osdev.org/ELF#ELF_Header
+ */
 typedef enum : uint16_t {
     ELF_ISA_NONE = 0x00,
     ELF_ISA_SPARC = 0x02,
@@ -45,6 +65,10 @@ typedef enum : uint16_t {
     ELF_ISA_RISCV = 0xF3,
 } elf_isa_t;
 
+/*
+ * ELF header structure.
+ * https://wiki.osdev.org/ELF#ELF_Header
+ */
 typedef struct __attribute__((packed))
 {
     char magic[4];          /* ELF magic number (0x7F followed by 'ELF' in ASCII) */
@@ -58,6 +82,10 @@ typedef struct __attribute__((packed))
     char version[4];        /* ELF version */
 } elf_header_t;
 
+/*
+ * ELF header structure for 64-bit ELF files.
+ * https://wiki.osdev.org/ELF#ELF_Header
+ */
 typedef struct __attribute__((packed))
 {
     elf_header_t header;
@@ -73,6 +101,10 @@ typedef struct __attribute__((packed))
     uint16_t shst_index;      /* Index of the section header string table */
 } elf64_header_t;
 
+/*
+ * ELF header structure for 32-bit ELF files.
+ * https://wiki.osdev.org/ELF#ELF_Header
+ */
 typedef struct __attribute__((packed))
 {
     elf_header_t header;
@@ -88,6 +120,10 @@ typedef struct __attribute__((packed))
     uint16_t shst_index;      /* Index of the section header string table */
 } elf32_header_t;
 
+/*
+ * Program section header type.
+ * https://wiki.osdev.org/ELF#Program_header
+ */
 typedef enum : uint32_t {
     SECTION_TYPE_NULL = 0,    /* Null (ignore the entry) */
     SECTION_TYPE_LOAD = 1,    /* Loadable section */
@@ -96,6 +132,10 @@ typedef enum : uint32_t {
     SECTION_TYPE_NOTE = 4,    /* Note section */
 } elf_phs_type_t;
 
+/*
+ * Program section header flags.
+ * https://wiki.osdev.org/ELF#Program_header
+ */
 typedef enum : uint32_t {
     SECTION_FLAG_READ = 1 << 0,
     SECTION_FLAG_WRITE = 1 << 1,
@@ -132,5 +172,14 @@ typedef struct __attribute__((packed))
     uint32_t section_align;       /* Required alignment for the section */
 } elf32_psh_t;
 
+/*
+ * Parse an ELF file header.
+ * Returns read bytes on success, -1 on failure.
+ */
 int parse_elf_header(file_t *file, void *buffer);
+
+/*
+ * Parse an ELF program header.
+ * Returns read bytes on success, -1 on failure.
+ */
 int parse_elf_program_header(file_t *file, void *buffer, size_t size);

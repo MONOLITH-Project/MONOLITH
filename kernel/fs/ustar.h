@@ -3,6 +3,10 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+/*
+ * USTAR flags.
+ * https://wiki.osdev.org/USTAR#Format_Details
+ */
 typedef enum : char {
     USTAR_NORMAL = '0',
     USTAR_HARDLINK = '1',
@@ -13,6 +17,10 @@ typedef enum : char {
     USTAR_FIFO = '6',
 } ustar_flag_t;
 
+/*
+ * USTAR block structure.
+ * https://wiki.osdev.org/USTAR#Format_Details
+ */
 typedef struct
 {
     char filename[100];

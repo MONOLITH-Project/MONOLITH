@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "kernel/serial.h"
 #include <kernel/arch/pc/idt.h>
 #include <kernel/arch/pc/pit.h>
 #include <kernel/klibc/string.h>
 #include <kernel/memory/heap.h>
+#include <kernel/serial.h>
 #include <kernel/terminal/kshell.h>
 #include <kernel/terminal/terminal.h>
 #include <kernel/timer.h>

@@ -43,17 +43,17 @@ typedef enum : uint8_t {
 } ps2_scancode_t;
 
 typedef enum : uint8_t {
-    KEYBOARD_HOLD = 0x00,      // 00
-    KEYBOARD_PRESSED = 0x01,   // 01
-    KEYBOARD_RELEASED = 0x02,  // 10
+    KEYBOARD_HOLD = 0x00,
+    KEYBOARD_PRESSED = 0x01,
+    KEYBOARD_RELEASED = 0x02,
 } ps2_action_t;
 
 typedef union {
     uint8_t raw;
     struct
     {
-        uint8_t scancode : 7;  // Use 7 bits for scancode (0-127)
-        uint8_t released : 1;  // Use 1 bit for released flag (bit 7)
+        uint8_t scancode : 7;  /* Use 7 bits for scancode (0-127) */
+        uint8_t released : 1;  /* Use 1 bit for released flag (bit 7) */
     };
 } ps2_event_t;
 
