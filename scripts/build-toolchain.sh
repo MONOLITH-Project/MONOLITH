@@ -2,6 +2,13 @@
 set -e
 set -u
 
+CC="gcc"
+CXX="g++"
+AR="ar"
+AS="as"
+LD="ld"
+RANLIB="ranlib"
+
 echo "[*] Starting cross-compiler build process"
 echo "[*] ARCH environment variable: ${ARCH:-not set}"
 
@@ -9,9 +16,6 @@ echo "[*] ARCH environment variable: ${ARCH:-not set}"
 TARGET=x86_64-elf
 ARCH_DIR=x86_64
 echo "[*] Building for x86_64 architecture (ARCH=${ARCH:-pc/x86_64})"
-
-# Print debug information
-echo "[DEBUG] TARGET variable set to: $TARGET"
 
 # Configuration variables
 PREFIX=$(pwd)/toolchain/$ARCH_DIR

@@ -5,21 +5,22 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs, ... }:
+  outputs = { nixpkgs, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
     in
     {
       devShells.${system}.default = pkgs.mkShell {
+        hardeningDisable = [ "format" ];
         buildInputs = with pkgs; [
           gcc
           gnumake
           bison
           flex
-          gmp.dev
+          gmp
           libmpc
-          mpfr.dev
+          mpfr
           texinfo
           isl
           qemu
