@@ -8,6 +8,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+/*
+ * Heap statistics and information.
+ */
 typedef struct
 {
     size_t free_blocks;
