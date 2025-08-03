@@ -7,10 +7,10 @@
 #include <kernel/memory/heap.h>
 #include <kernel/video/framebuffer/fb_terminal.h>
 #include <kernel/video/panic.h>
-#include <libs/flanterm/backends/fb.h>
+#include <libs/flanterm/src/flanterm_backends/fb.h>
 
 #define FLANTERM_IN_FLANTERM
-#include <libs/flanterm/flanterm_private.h>
+#include <libs/flanterm/src/flanterm_private.h>
 
 #define WIDTH 180
 #define HEIGHT 150

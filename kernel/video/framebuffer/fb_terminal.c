@@ -7,11 +7,11 @@
 #include <kernel/memory/heap.h>
 #include <kernel/video/console.h>
 #include <kernel/video/framebuffer/fb_terminal.h>
-#include <libs/flanterm/backends/fb.h>
-#include <libs/flanterm/flanterm.h>
+#include <libs/flanterm/src/flanterm_backends/fb.h>
+#include <libs/flanterm/src/flanterm.h>
 
 #define FLANTERM_IN_FLANTERM
-#include <libs/flanterm/flanterm_private.h>
+#include <libs/flanterm/src/flanterm_private.h>
 
 static struct flanterm_context *_fb_ctx;
 

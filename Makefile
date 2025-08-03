@@ -51,7 +51,7 @@ ifeq ($(CPU_ARCH),x86_64)
 endif
 LDFLAGS += -T boot/pc/$(CPU_ARCH)/linker.ld -nostdlib -z max-page-size=0x1000 -static --build-id=none
 
-FLANTERM_SOURCES := libs/flanterm/flanterm.c libs/flanterm/backends/fb.c
+FLANTERM_SOURCES := libs/flanterm/src/flanterm.c libs/flanterm/src/flanterm_backends/fb.c
 FLANTERM_OBJECTS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(FLANTERM_SOURCES))
 
 .PHONY: all clean toolchain iso run run-debug kernel test flanterm initrd userspace
@@ -89,9 +89,9 @@ kernel: toolchain | $(BUILD_DIR)
 
 # Build FlanTerm library
 flanterm: toolchain | $(BUILD_DIR)
-	@mkdir -p $(OBJ_DIR)/libs/flanterm/backends
-	$(CC) $(CFLAGS) -c libs/flanterm/flanterm.c -o $(OBJ_DIR)/libs/flanterm/flanterm.o
-	$(CC) $(CFLAGS) -c libs/flanterm/backends/fb.c -o $(OBJ_DIR)/libs/flanterm/backends/fb.o
+	@mkdir -p $(OBJ_DIR)/libs/flanterm/src/flanterm_backends
+	$(CC) $(CFLAGS) -c libs/flanterm/src/flanterm.c -o $(OBJ_DIR)/libs/flanterm/src/flanterm.o
+	$(CC) $(CFLAGS) -c libs/flanterm/src/flanterm_backends/fb.c -o $(OBJ_DIR)/libs/flanterm/src/flanterm_backends/fb.o
 
 # Run tests
 test:
