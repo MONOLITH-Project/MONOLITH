@@ -7,7 +7,7 @@
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
-#include <kernel/serial.h>
+#include <kernel/debug.h>
 #include <stdint.h>
 
 typedef struct block_header

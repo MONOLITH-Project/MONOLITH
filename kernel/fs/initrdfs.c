@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/debug.h>
 #include <kernel/fs/initrdfs.h>
 #include <kernel/fs/ustar.h>
 #include <kernel/fs/vfs.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
 #include <kernel/memory/heap.h>
-#include <kernel/serial.h>
 #include <stdint.h>
 
 static int _oct2bin(char *str, int size)

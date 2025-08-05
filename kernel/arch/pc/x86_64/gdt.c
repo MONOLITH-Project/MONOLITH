@@ -4,7 +4,7 @@
  */
 
 #include <kernel/arch/pc/gdt.h>
-#include <kernel/serial.h>
+#include <kernel/debug.h>
 
 /*
  * Global Descriptor Table Entry Descriptor.

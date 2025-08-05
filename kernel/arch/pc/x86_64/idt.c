@@ -8,7 +8,7 @@
 #include <kernel/arch/pc/morse_debug.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
-#include <kernel/serial.h>
+#include <kernel/debug.h>
 #include <kernel/video/panic.h>
 
 struct interrupt_registers
@@ -273,11 +273,14 @@ void isr_handler(struct interrupt_registers *regs)
         } break;
         case 13: { /* General Protection Fault */
             uintptr_t address = regs->rip;
+            uintptr_t rax = regs->rax;
+            uintptr_t rdx = regs->rdx;
+            uintptr_t rcx = regs->rcx;
             char buffer[128];
             strcpy(buffer, "General Protection Fault at 0x");
             size_t index = strlen("General Protection Fault at 0x");
             itohex(address, buffer + index);
-            debug_log_fmt("[-] %s\n", buffer);
+            debug_log_fmt("[*] %s\n[*] rax: 0x%x\n[*] rdx: 0x%x\n[*] rcx: 0x%x\n", buffer, rax, rdx, rcx);
             panic(buffer);
             morse_log(buffer);
         } break;

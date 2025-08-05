@@ -6,6 +6,7 @@
 #include <kernel/arch/pc/gdt.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/arch/pc/sse.h>
+#include <kernel/debug.h>
 #include <kernel/fs/initrdfs.h>
 #include <kernel/fs/tmpfs.h>
 #include <kernel/fs/vfs.h>
@@ -41,10 +42,11 @@ void kmain()
         while (1)
             __asm__("hlt");
     }
+    sse_init();
 
     start_debug_serial(SERIAL_COM1);
+    start_debug_console(framebuffer_request.response);
 
-    sse_init();
     gdt_init();
     idt_init();
     pmm_init(limine_mmap_request.response);
@@ -53,6 +55,8 @@ void kmain()
     timer_init();
     initrd_load_modules(limine_module_request.response);
     tmpfs_new_drive();
+
+    stop_debug_console();
     console_init(framebuffer_request.response);
 
     while (1)

@@ -5,7 +5,7 @@
 
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
-#include <kernel/serial.h>
+#include <kernel/debug.h>
 
 static uint8_t *_bitmap;
 static uint8_t *_bitmap_end;

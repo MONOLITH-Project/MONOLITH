@@ -57,21 +57,3 @@ char read_serial(serial_port_t port);
  * Returns the number of bytes read from the port.
  */
 size_t read_bytes(serial_port_t port, char *buffer, size_t size);
-
-/*
- * Start the serial port for debugging.
- * Returns true if serial port debugging was started successfully, false otherwise.
- */
-bool start_debug_serial(serial_port_t port);
-
-/*
- * Sends a message to the debug serial port.
- * Does nothing if the debug serial port is not initialized.
- */
-void debug_log(const char *message);
-
-/*
- * Sends a formatted message to the debug serial port.
- * Does nothing if the debug serial port is not initialized.
- */
-void debug_log_fmt(const char *format, ...);

@@ -5,11 +5,11 @@
 
 #include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/paging.h>
+#include <kernel/debug.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
-#include <kernel/serial.h>
 #include <kernel/terminal/kshell.h>
 #include <kernel/video/panic.h>
 
@@ -184,8 +184,7 @@ void vmm_init(struct limine_memmap_response *memmap_response)
 
     for (uint64_t i = 0; i < memmap_response->entry_count; i++) {
         uint64_t type = memmap_response->entries[i]->type;
-        if (type == LIMINE_MEMMAP_USABLE || type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE
-            || type == LIMINE_MEMMAP_KERNEL_AND_MODULES || type == LIMINE_MEMMAP_FRAMEBUFFER) {
+        if (type != LIMINE_MEMMAP_BAD_MEMORY) {
             vmm_map_range(
                 (uintptr_t) vmm_get_hhdm_addr((void *) memmap_response->entries[i]->base),
                 memmap_response->entries[i]->base,
@@ -336,11 +335,9 @@ failure:
     debug_log_fmt("[-] Failed to unmap virtual address 0x%x\n", virt);
 }
 
-void vmm_unmap_range(uintptr_t virt_addr, size_t size, bool flush) {
-    debug_log_fmt(
-        "[*] Unmapping 0x%x - 0x%x\n",
-        virt_addr,
-        virt_addr + size);
+void vmm_unmap_range(uintptr_t virt_addr, size_t size, bool flush)
+{
+    debug_log_fmt("[*] Unmapping 0x%x - 0x%x\n", virt_addr, virt_addr + size);
     size_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE; /* Round up */
     for (size_t i = 0; i < num_pages; i++) {
         vmm_unmap(virt_addr + i * PAGE_SIZE, flush);
