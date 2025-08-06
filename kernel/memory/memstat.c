@@ -10,10 +10,10 @@
 #include <kernel/terminal/kshell.h>
 #include <kernel/terminal/terminal.h>
 
-static void _free(terminal_t *term, int argc, char *argv[])
+static void _free(int argc, char *argv[])
 {
     if (argc != 2) {
-        term_printf(term, "\n[*] Usage: free <address>");
+        kprintf("\n[*] Usage: free <address>");
         return;
     }
 
@@ -21,45 +21,42 @@ static void _free(terminal_t *term, int argc, char *argv[])
     void *ptr = (void *) atox(argv[1]);
     kfree(ptr);
 
-    term_printf(term, "\n[+] Freed memory at 0x%x", ptr);
+    kprintf("\n[+] Freed memory at 0x%x", ptr);
 }
 
-static void _alloc(terminal_t *term, int argc, char *argv[])
+static void _alloc(int argc, char *argv[])
 {
     if (argc != 2) {
-        term_printf(term, "\n[*] Usage: alloc <size in bytes>");
+        kprintf("\n[*] Usage: alloc <size in bytes>");
         return;
     }
 
     /* TODO: add error handling */
     void *ptr = kmalloc(atoul(argv[1]));
     if (!ptr) {
-        term_printf(term, "[-] Failed to allocate memory");
+        kprintf("[-] Failed to allocate memory");
         return;
     }
 
-    term_printf(term, "\n[+] Allocated %s bytes at 0x%x", argv[1], ptr);
+    kprintf("\n[+] Allocated %s bytes at 0x%x", argv[1], ptr);
 }
 
-static void _memstat_print_stats(terminal_t *term, int, char **)
+static void _memstat_print_stats(int, char **)
 {
     pmm_stats_t pmm_info = pmm_get_stats();
     heap_stats_t heap_stats = heap_get_stats();
 
     size_t total_memory_mb = pmm_info.total_memory / 1048576;
-    term_printf(term, "\n[*] Total physical memory: %d MB", total_memory_mb);
-    term_printf(term, "\n[*] Total physical memory pages: %d pages", pmm_info.total_pages);
-    term_printf(term, "\n[*] Free physical memory pages: %d pages", pmm_info.free_pages);
-    term_printf(
-        term,
-        "\n[*] Used physical memory pages: %d pages\n",
-        pmm_info.total_pages - pmm_info.free_pages);
+    kprintf("\n[*] Total physical memory: %d MB", total_memory_mb);
+    kprintf("\n[*] Total physical memory pages: %d pages", pmm_info.total_pages);
+    kprintf("\n[*] Free physical memory pages: %d pages", pmm_info.free_pages);
+    kprintf(
+        "\n[*] Used physical memory pages: %d pages\n", pmm_info.total_pages - pmm_info.free_pages);
 
-    term_printf(
-        term, "\n[*] Total heap blocks: %d blocks", heap_stats.free_blocks + heap_stats.used_blocks);
-    term_printf(term, "\n[*] Free heap blocks: %d blocks", heap_stats.free_blocks);
-    term_printf(term, "\n[*] Used heap blocks: %d blocks", heap_stats.used_blocks);
-    term_printf(term, "\n[*] Allocated heap memory: %d bytes", heap_stats.used_memory);
+    kprintf("\n[*] Total heap blocks: %d blocks", heap_stats.free_blocks + heap_stats.used_blocks);
+    kprintf("\n[*] Free heap blocks: %d blocks", heap_stats.free_blocks);
+    kprintf("\n[*] Used heap blocks: %d blocks", heap_stats.used_blocks);
+    kprintf("\n[*] Allocated heap memory: %d bytes", heap_stats.used_memory);
 }
 
 void memstat_init_cmds()

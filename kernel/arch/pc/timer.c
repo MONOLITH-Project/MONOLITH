@@ -5,9 +5,9 @@
 
 #include <kernel/arch/pc/idt.h>
 #include <kernel/arch/pc/pit.h>
+#include <kernel/debug.h>
 #include <kernel/klibc/string.h>
 #include <kernel/memory/heap.h>
-#include <kernel/debug.h>
 #include <kernel/terminal/kshell.h>
 #include <kernel/terminal/terminal.h>
 #include <kernel/timer.h>
@@ -60,10 +60,10 @@ static void _timer_irq()
     }
 }
 
-static void _sleep_cmd(terminal_t *term, int argc, char *argv[])
+static void _sleep_cmd(int argc, char *argv[])
 {
     if (argc != 2) {
-        term_puts(term, "\n[*] Usage: sleep [duration in ticks]");
+        kputs("\n[*] Usage: sleep [duration in ticks]");
         return;
     }
     uint64_t duration = atoul(argv[1]);

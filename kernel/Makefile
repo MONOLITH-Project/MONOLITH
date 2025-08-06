@@ -7,9 +7,6 @@ OBJ_DIR := $(BUILD_DIR)/obj
 CC := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)gcc
 AS := $(TOOLCHAIN_BIN)/$(CROSS_PREFIX)as
 
-# Panic image object
-PANIC_IMG_OBJ := $(OBJ_DIR)/kernel/video/panic.raw.o
-
 # Find all kernel source files, excluding arch directory
 ASM_SRC := $(shell find . -path "./arch" -prune -o -name "*.asm" -print 2>/dev/null)
 C_SRC := $(shell find . -path "./arch" -prune -o -name "*.c" -print 2>/dev/null)
@@ -54,11 +51,6 @@ $(OBJ_DIR)/kernel/%.asm.o: %.asm
 $(OBJ_DIR)/kernel/%.c.o: %.c
 	$(create_dir)
 	$(CC) $(CFLAGS) -c $< -o $@
-
-# Generate panic image object file
-$(PANIC_IMG_OBJ): video/panic.raw
-	$(create_dir)
-	cd $(CURDIR) && objcopy -I binary -O elf64-x86-64 -B i386:x86-64 --rename-section .data=.rodata,alloc,load,readonly,data,contents --redefine-sym _binary_video_panic_raw_start=panic_start --redefine-sym _binary_video_panic_raw_end=panic_end $< $@
 
 clean:
 	rm -rf $(ASM_OBJ) $(C_OBJ) $(ARCH_ASM_OBJ) $(ARCH_C_OBJ) $(ARCH_PC_ASM_OBJ) $(ARCH_PC_C_OBJ) $(PANIC_IMG_OBJ)

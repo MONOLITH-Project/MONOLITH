@@ -14,13 +14,14 @@
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
 #include <kernel/serial.h>
+#include <kernel/terminal/terminal.h>
 #include <kernel/timer.h>
-#include <kernel/video/console.h>
+#include <libs/flanterm/src/flanterm_backends/fb.h>
 #include <libs/limine/limine.h>
 
 __attribute__((used, section(".limine_requests"))) static volatile LIMINE_BASE_REVISION(3);
 
-__attribute__((used, section(".limine_requests"))) static volatile struct limine_framebuffer_request
+__attribute__((used, section(".limine_requests"))) volatile struct limine_framebuffer_request
     framebuffer_request
     = {.id = LIMINE_FRAMEBUFFER_REQUEST, .revision = 0};
 
@@ -35,6 +36,8 @@ __attribute__((used, section(".limine_requests"))) volatile struct limine_module
 __attribute__((used, section(".limine_requests_start"))) static volatile LIMINE_REQUESTS_START_MARKER;
 
 __attribute__((used, section(".limine_requests_end"))) static volatile LIMINE_REQUESTS_END_MARKER;
+
+struct flanterm_context *_fb_ctx;
 
 void kmain()
 {
@@ -57,7 +60,7 @@ void kmain()
     tmpfs_new_drive();
 
     stop_debug_console();
-    console_init(framebuffer_request.response);
+    term_init(framebuffer_request.response);
 
     while (1)
         __asm__("hlt");
