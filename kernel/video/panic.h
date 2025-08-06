@@ -5,4 +5,4 @@
 
 #pragma once
 
-void panic(const char *message);
+void panic(const char *message, struct interrupt_registers *regs);

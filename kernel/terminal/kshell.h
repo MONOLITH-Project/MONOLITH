@@ -15,7 +15,7 @@
 /*
  * kshell command callback.
  */
-typedef void (*kshell_command_t)(terminal_t *, int, char **);
+typedef void (*kshell_command_t)(int, char **);
 
 /*
  * A structure that contains the name, description and callback
@@ -36,7 +36,7 @@ void kshell_init();
 /*
  * Launches the kernel shell.
  */
-void kshell_launch(terminal_t *);
+void kshell_launch();
 
 /*
  * Registers a new kshell command.

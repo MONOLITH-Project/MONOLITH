@@ -3,101 +3,86 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/arch/pc/idt.h>
 #include <kernel/klibc/string.h>
 #include <kernel/memory/heap.h>
-#include <kernel/video/framebuffer/fb_terminal.h>
 #include <kernel/video/panic.h>
-#include <libs/flanterm/src/flanterm_backends/fb.h>
+#include <libs/flanterm/src/flanterm.h>
 
-#define FLANTERM_IN_FLANTERM
-#include <libs/flanterm/src/flanterm_private.h>
+extern struct flanterm_context *_fb_ctx;
+static size_t _rows, _cols;
+extern bool _term_initialized;
 
-#define WIDTH 180
-#define HEIGHT 150
+static const char _start_escape[] = "\033[38;5;250;48;5;21m\033[2J\033[H\033[?25l";
+static const char _text_color[] = "\x1b[38;5;250;48;5;21m";
 
-uint32_t grayscale_to_pixel(uint8_t gray)
+void _center_text(const char *text, size_t width)
 {
-    return (gray << 16) | (gray << 8) | gray | (255u << 24); /* RGBA: [R=G, G=G, B=G, A=255] */
+    size_t text_len = vstrlen(text);
+    size_t padding = (width > text_len) ? (width - text_len) / 2 : 0;
+    for (size_t i = 0; i < padding; i++)
+        flanterm_write(_fb_ctx, " ", 1);
+    flanterm_write(_fb_ctx, text, strlen(text));
+
+    flanterm_write(_fb_ctx, _text_color, sizeof(_text_color));
+    for (size_t i = 0; i < width - text_len - padding; i++)
+        flanterm_write(_fb_ctx, " ", 1);
 }
 
-void draw_grayscale_image(
-    uint32_t *framebuffer,
-    uint32_t pitch,
-    uint32_t bytes_per_pixel,
-    uint8_t *image,
-    uint32_t img_width,
-    uint32_t img_height,
-    uint32_t dest_x,
-    uint32_t dest_y)
+void _empty_line()
 {
-    for (uint32_t y = 0; y < img_height; y++) {
-        for (uint32_t x = 0; x < img_width; x++) {
-            uint8_t gray = image[y * img_width + x];
-            uint32_t pixel = grayscale_to_pixel(gray);
-            uint32_t fb_x = dest_x + x;
-            uint32_t fb_y = dest_y + y;
-            uint32_t *fb_pixel = framebuffer + (fb_y * pitch / bytes_per_pixel) + fb_x;
-            *fb_pixel = pixel;
-        }
-    }
+    flanterm_write(_fb_ctx, _text_color, sizeof(_text_color));
+    for (size_t i = 0; i < _cols; i++)
+        flanterm_write(_fb_ctx, " ", 1);
 }
 
-extern uint8_t panic_start;
-
-void panic(const char *message)
+void _print(const char *text)
 {
-    display_mode_t mode = console_get_mode();
-    if (mode == DISPLAY_MODE_FRAMEBUFFER) {
-        framebuffer_t fb = console_get_framebuffer();
-        fb_destroy_terminal();
-        struct flanterm_context *fb_ctx = flanterm_fb_init(
-            (void *) kmalloc,
-            (void *) kfree,
-            fb.framebuffer,
-            fb.width,
-            fb.height,
-            fb.pitch,
-            fb.redmask_size,
-            fb.redmask_shift,
-            fb.greenmask_size,
-            fb.greenmask_shift,
-            fb.bluemask_size,
-            fb.bluemask_shift,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            0,
-            0,
-            1,
-            0,
-            0,
-            0);
-        draw_grayscale_image(
-            fb.framebuffer,
-            fb.pitch,
-            4,
-            (uint8_t *) &panic_start,
-            WIDTH,
-            HEIGHT,
-            fb.width / 2 - WIDTH / 2,
-            fb.height / 2 - HEIGHT / 2);
+    flanterm_write(_fb_ctx, text, strlen(text));
+}
 
-        /* Position cursor below the panic image */
-        uint32_t font_height = fb.height / fb_ctx->rows;
-        uint32_t panic_bottom_row = fb_ctx->rows / 2 + HEIGHT / (2 * font_height) + 2;
+void _print_hex(char *buffer, uint64_t value)
+{
+    itohex(value, buffer);
+    _print(buffer);
+}
 
-        /* Center the message horizontally */
-        uint32_t message_len = strlen(message);
-        uint32_t message_col = (fb_ctx->cols - message_len) / 2;
+void _dump_registers(struct interrupt_registers *regs)
+{
+    char buffer[32];
+    _print("\n    Registers state:");
+    _print("\n\tRAX = 0x");
+    _print_hex(buffer, regs->rax);
+    _print("\n\tRBX = 0x");
+    _print_hex(buffer, regs->rbx);
+    _print("\n\tRCX = 0x");
+    _print_hex(buffer, regs->rcx);
+    _print("\n\tRDX = 0x");
+    _print_hex(buffer, regs->rdx);
+    _print("\n\tRSP = 0x");
+    _print_hex(buffer, regs->rsp);
+    _print("\n\tRBP = 0x");
+    _print_hex(buffer, regs->rbp);
+    _print("\n\tRSI = 0x");
+    _print_hex(buffer, regs->rsi);
+    _print("\n\tRDI = 0x");
+    _print_hex(buffer, regs->rdi);
+    _print("\n\tRFLAGS = 0x");
+    _print_hex(buffer, regs->rflags);
+}
 
-        fb_ctx->set_text_fg_rgb(fb_ctx, 0xFFFFFFFF);
-        fb_ctx->set_cursor_pos(fb_ctx, message_col, panic_bottom_row);
-        fb_ctx->cursor_enabled = 0;
-        flanterm_write(fb_ctx, message, message_len);
-    }
+void panic(const char *message, struct interrupt_registers *regs)
+{
+    if (!_term_initialized)
+        return;
+
+    flanterm_get_dimensions(_fb_ctx, &_cols, &_rows);
+    flanterm_write(_fb_ctx, _start_escape, sizeof(_start_escape));
+
+    _empty_line();
+    _center_text("\x1b[38;5;21;48;5;250m MONOLITH Panic! ", _cols);
+    _print("\x1b[38;5;250;48;5;21m\n\n");
+    _print("    ");
+    _print(message);
+    _dump_registers(regs);
 }

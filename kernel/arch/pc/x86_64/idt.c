@@ -6,37 +6,10 @@
 #include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/arch/pc/morse_debug.h>
+#include <kernel/debug.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
-#include <kernel/debug.h>
 #include <kernel/video/panic.h>
-
-struct interrupt_registers
-{
-    uint64_t r15;
-    uint64_t r14;
-    uint64_t r13;
-    uint64_t r12;
-    uint64_t r11;
-    uint64_t r10;
-    uint64_t r9;
-    uint64_t r8;
-    uint64_t rsi;
-    uint64_t rdi;
-    uint64_t rbp;
-    uint64_t rdx;
-    uint64_t rcx;
-    uint64_t rbx;
-    uint64_t rax;
-    uint64_t core;
-    uint64_t isr_number;
-    uint64_t error_code;
-    uint64_t rip;
-    uint64_t cs;
-    uint64_t rflags;
-    uint64_t rsp;
-    uint64_t ss;
-} __attribute__((packed));
 
 /*
  * IDT Gate Descriptor
@@ -268,7 +241,7 @@ void isr_handler(struct interrupt_registers *regs)
             size_t index = strlen("Page fault at 0x");
             itohex(address, buffer + index);
             debug_log_fmt("[-] %s\n", buffer);
-            panic(buffer);
+            panic(buffer, regs);
             morse_log(buffer);
         } break;
         case 13: { /* General Protection Fault */
@@ -280,12 +253,13 @@ void isr_handler(struct interrupt_registers *regs)
             strcpy(buffer, "General Protection Fault at 0x");
             size_t index = strlen("General Protection Fault at 0x");
             itohex(address, buffer + index);
-            debug_log_fmt("[*] %s\n[*] rax: 0x%x\n[*] rdx: 0x%x\n[*] rcx: 0x%x\n", buffer, rax, rdx, rcx);
-            panic(buffer);
+            debug_log_fmt(
+                "[*] %s\n[*] rax: 0x%x\n[*] rdx: 0x%x\n[*] rcx: 0x%x\n", buffer, rax, rdx, rcx);
+            panic(buffer, regs);
             morse_log(buffer);
         } break;
         default:
-            panic(error_messages[regs->isr_number]);
+            panic(error_messages[regs->isr_number], regs);
             morse_log(error_messages[regs->isr_number]);
             debug_log_fmt("[-] Error: %s\n", error_messages[regs->isr_number]);
         }

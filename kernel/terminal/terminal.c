@@ -3,32 +3,43 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/input/ps2_keyboard.h>
+#include <kernel/memory/heap.h>
+#include <kernel/memory/memstat.h>
+#include <kernel/terminal/kshell.h>
 #include <kernel/terminal/terminal.h>
+#include <libs/flanterm/src/flanterm_backends/fb.h>
 #include <stdarg.h>
 #include <stdint.h>
 
-void term_putc(terminal_t *term, char c)
+static int _index = 0;
+static char _buffer[TERM_BUFFER_SIZE];
+bool _term_initialized = false;
+
+extern struct flanterm_context *_fb_ctx;
+
+void kputc(char c)
 {
     if (c == '\n') {
-        if (term->index >= TERM_BUFFER_SIZE) {
-            term_flush(term);
+        if (_index >= TERM_BUFFER_SIZE) {
+            kflush();
         }
-        term->buffer[term->index++] = '\n';
-        term_flush(term);
+        _buffer[_index++] = '\n';
+        kflush();
         return;
-    } else if (term->index >= TERM_BUFFER_SIZE) {
-        term_flush(term);
+    } else if (_index >= TERM_BUFFER_SIZE) {
+        kflush();
     }
-    term->buffer[term->index++] = c;
+    _buffer[_index++] = c;
 }
 
-void term_puts(terminal_t *term, const char *str)
+void kputs(const char *str)
 {
     while (*str)
-        term_putc(term, *str++);
+        kputc(*str++);
 }
 
-static inline void _term_printd(terminal_t *term, int d)
+static inline void _term_printd(int d)
 {
     char buffer[16];
     int i = 0, is_negative = 0;
@@ -59,10 +70,10 @@ static inline void _term_printd(terminal_t *term, int d)
 
     buffer[i] = '\0';
 
-    term_puts(term, buffer);
+    kputs(buffer);
 }
 
-static inline void _term_printx(terminal_t *term, size_t x)
+static inline void _term_printx(size_t x)
 {
     char buffer[16];
     int i = 0;
@@ -89,10 +100,10 @@ static inline void _term_printx(terminal_t *term, size_t x)
 
     buffer[i] = '\0';
 
-    term_puts(term, buffer);
+    kputs(buffer);
 }
 
-void term_printf(terminal_t *term, const char *fmt, ...)
+void kprintf(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -103,23 +114,23 @@ void term_printf(terminal_t *term, const char *fmt, ...)
             /* TODO: Add more format specifiers */
             switch (*fmt) {
             case 's':
-                term_puts(term, va_arg(args, const char *));
+                kputs(va_arg(args, const char *));
                 break;
             case 'c':
-                term_putc(term, va_arg(args, int));
+                kputc(va_arg(args, int));
                 break;
             case 'd':
-                _term_printd(term, va_arg(args, int));
+                _term_printd(va_arg(args, int));
                 break;
             case 'x':
-                _term_printx(term, va_arg(args, uint64_t));
+                _term_printx(va_arg(args, uint64_t));
                 break;
             case '%':
-                term_putc(term, '%');
+                kputc('%');
                 break;
             }
         } else {
-            term_putc(term, *fmt);
+            kputc(*fmt);
         }
         fmt++;
     }
@@ -127,29 +138,75 @@ void term_printf(terminal_t *term, const char *fmt, ...)
     va_end(args);
 }
 
-char term_getc(terminal_t *term)
+static char _read_keyboard()
 {
-    term_flush(term);
+    ps2_event_t event = ps2_wait_for_event();
+    ps2_action_t action = ps2_get_event_action(event);
+
+    char c = ps2_is_capslock_on() || ps2_is_key_down(KEY_RSHIFT) || ps2_is_key_down(KEY_LSHIFT)
+                 ? keyboard_layouts[KB_LAYOUT_US].shifted_keymap[event.scancode]
+                 : keyboard_layouts[KB_LAYOUT_US].keymap[event.scancode];
+    if (action == KEYBOARD_HOLD) {
+        return c;
+    }
+    return 0x00;
+}
+
+char kgetc()
+{
+    kflush();
     char c;
-    while ((c = term->read_callback(term)) == 0x00)
+    while ((c = _read_keyboard()) == 0x00)
         ;
     return c;
 }
 
-void term_flush(terminal_t *term)
+void kflush()
 {
-    if (term->index > 0) {
-        term->flush_callback(term);
-        term->index = 0;
+    if (_index > 0) {
+        flanterm_write(_fb_ctx, _buffer, _index);
+        _index = 0;
     }
 }
 
-void term_init(
-    terminal_t *term,
-    void (*flush_callback)(struct terminal *),
-    char (*read_callback)(struct terminal *))
+void term_init(struct limine_framebuffer_response *response)
 {
-    term->flush_callback = flush_callback;
-    term->read_callback = read_callback;
-    term->index = 0;
+    if (_fb_ctx != NULL)
+        flanterm_deinit(_fb_ctx, NULL);
+
+    struct limine_framebuffer *fb = response->framebuffers[0];
+    _fb_ctx = flanterm_fb_init(
+        (void *) kmalloc,
+        (void *) kfree,
+        fb->address,
+        fb->width,
+        fb->height,
+        fb->pitch,
+        fb->red_mask_size,
+        fb->red_mask_shift,
+        fb->green_mask_size,
+        fb->green_mask_shift,
+        fb->blue_mask_size,
+        fb->blue_mask_shift,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0);
+    _index = 0;
+
+    ps2_init_keyboard();
+    kshell_init();
+    memstat_init_cmds();
+    _term_initialized = true;
+    kshell_launch();
 }

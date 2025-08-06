@@ -16,6 +16,7 @@ char *strcat(char *dest, const char *src);
 char *strncat(char *dst, const char *src, size_t ssize);
 char *strstr(const char *str, const char *substr);
 size_t strlen(const char *s);
+size_t vstrlen(const char *s);
 unsigned long atoul(const char *str);
 size_t atox(const char *hex);
 int atoi(const char *nptr);

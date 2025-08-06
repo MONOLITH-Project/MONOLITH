@@ -57,10 +57,10 @@ static inline const char *_get_paging_mode_str(uint64_t mode)
     }
 }
 
-static void _vmmap_command(terminal_t *term, int argc, char *argv[])
+static void _vmmap_command(int argc, char *argv[])
 {
     if (argc != 4) {
-        term_printf(term, "\n[*] Usage: vmmap <virt> <phys> <flags>");
+        kprintf("\n[*] Usage: vmmap <virt> <phys> <flags>");
         return;
     }
 
@@ -71,7 +71,7 @@ static void _vmmap_command(terminal_t *term, int argc, char *argv[])
     vmm_map(virt, phys, flags, true);
 }
 
-static void _vminfo_command(terminal_t *term, int, char **)
+static void _vminfo_command(int, char **)
 {
     size_t present_pml5_entries = 0, present_pml4_entries = 0, present_pml3_entries = 0,
            present_pml2_entries = 0, present_pml1_entries = 0;
@@ -156,19 +156,18 @@ static void _vminfo_command(terminal_t *term, int, char **)
                                 + present_pml2_entries + present_pml1_entries;
     size_t total_mapped_memory_mb = total_mapped_pages * PAGE_SIZE / 1048576;
 
-    term_printf(term, "\n[*] Virtual Memory Information:\n");
-    term_printf(
-        term, "[*] Paging mode: %s\n", _get_paging_mode_str(limine_paging_request.response->mode));
-    term_printf(term, "[*] Page Table Top Level Address: 0x%x\n", _pt_top_level);
-    term_printf(term, "[*] Page Size: %d bytes\n", PAGE_SIZE);
+    kprintf("\n[*] Virtual Memory Information:\n");
+    kprintf("[*] Paging mode: %s\n", _get_paging_mode_str(limine_paging_request.response->mode));
+    kprintf("[*] Page Table Top Level Address: 0x%x\n", _pt_top_level);
+    kprintf("[*] Page Size: %d bytes\n", PAGE_SIZE);
     if (limine_paging_request.response->mode == LIMINE_PAGING_MODE_X86_64_5LVL)
-        term_printf(term, "[*] Present PML5 Entries: %d\n", present_pml5_entries);
-    term_printf(term, "[*] Present PML4 Entries: %d\n", present_pml4_entries);
-    term_printf(term, "[*] Present PML3 Entries: %d\n", present_pml3_entries);
-    term_printf(term, "[*] Present PML2 Entries: %d\n", present_pml2_entries);
-    term_printf(term, "[*] Present PML1 Entries: %d\n", present_pml1_entries);
-    term_printf(term, "[*] Total mapped pages: %d\n", total_mapped_pages);
-    term_printf(term, "[*] Total mapped memory: %d MB", total_mapped_memory_mb);
+        kprintf("[*] Present PML5 Entries: %d\n", present_pml5_entries);
+    kprintf("[*] Present PML4 Entries: %d\n", present_pml4_entries);
+    kprintf("[*] Present PML3 Entries: %d\n", present_pml3_entries);
+    kprintf("[*] Present PML2 Entries: %d\n", present_pml2_entries);
+    kprintf("[*] Present PML1 Entries: %d\n", present_pml1_entries);
+    kprintf("[*] Total mapped pages: %d\n", total_mapped_pages);
+    kprintf("[*] Total mapped memory: %d MB\n", total_mapped_memory_mb);
 }
 
 void vmm_init(struct limine_memmap_response *memmap_response)
@@ -177,8 +176,11 @@ void vmm_init(struct limine_memmap_response *memmap_response)
     debug_log_fmt("[*] Using %s\n", _get_paging_mode_str(limine_paging_request.response->mode));
 
     _pt_top_level = pmm_alloc(1);
-    if (_pt_top_level == NULL)
-        panic("Failed to Initialize the VMM");
+    if (_pt_top_level == NULL) {
+        debug_log_fmt("[-] Failed to initialize the VMM");
+        while (1)
+            __asm__("hlt");
+    }
     _pt_top_level = vmm_get_hhdm_addr(_pt_top_level);
     memset(_pt_top_level, 0, PAGE_SIZE);
 
