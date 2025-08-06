@@ -14,6 +14,7 @@
 
 static int _index = 0;
 static char _buffer[TERM_BUFFER_SIZE];
+bool _term_initialized = false;
 
 extern struct flanterm_context *_fb_ctx;
 
@@ -206,5 +207,6 @@ void term_init(struct limine_framebuffer_response *response)
     ps2_init_keyboard();
     kshell_init();
     memstat_init_cmds();
+    _term_initialized = true;
     kshell_launch();
 }

@@ -176,8 +176,11 @@ void vmm_init(struct limine_memmap_response *memmap_response)
     debug_log_fmt("[*] Using %s\n", _get_paging_mode_str(limine_paging_request.response->mode));
 
     _pt_top_level = pmm_alloc(1);
-    if (_pt_top_level == NULL)
-        panic("Failed to Initialize the VMM");
+    if (_pt_top_level == NULL) {
+        debug_log_fmt("[-] Failed to initialize the VMM");
+        while (1)
+            __asm__("hlt");
+    }
     _pt_top_level = vmm_get_hhdm_addr(_pt_top_level);
     memset(_pt_top_level, 0, PAGE_SIZE);
 

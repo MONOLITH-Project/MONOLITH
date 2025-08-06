@@ -75,6 +75,26 @@ size_t strlen(const char *s)
     return len;
 }
 
+size_t vstrlen(const char *s)
+{
+    size_t visual_len = 0;
+    size_t i = 0;
+    while (s[i] != '\0') {
+        if (s[i] == '\x1b' && s[i + 1] == '[') {
+            i += 2;
+            while (s[i] != '\0' && !((s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z'))) {
+                i++;
+            }
+            if (s[i] != '\0')
+                i++;
+        } else {
+            visual_len++;
+            i++;
+        }
+    }
+    return visual_len;
+}
+
 char *strstr(const char *str, const char *substr)
 {
     if (*substr == '\0')

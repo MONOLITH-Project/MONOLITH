@@ -15,6 +15,7 @@
         hardeningDisable = [ "format" ];
         buildInputs = with pkgs; [
           gcc
+          gdb
           gnumake
           bison
           flex
