@@ -51,7 +51,7 @@ make run-headless
 To build the operating system for a different architecture:
 
 ```console
-ARCH="pc/i386" make
+ARCH="pc/x86_64" make
 ```
 
 Supported architectures:
