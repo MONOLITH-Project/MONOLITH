@@ -12,7 +12,6 @@
 
 typedef struct
 {
-    vfs_node_t vnode;
     size_t size;
     void *data;
 } _tmpfs_inode_t;
@@ -186,10 +185,11 @@ static int _tmpfs_write(file_t *file, const void *buffer, uint32_t size)
 {
     _tmpfs_inode_t *inode = ((vfs_node_t *) file->internal)->internal;
     if (inode->size < file->offset + size) {
-        void *new_data = krealloc(inode->data, file->offset + size);
-        if (new_data == NULL)
+        void *data = inode->data == NULL ? kmalloc(file->offset + size)
+                                         : krealloc(inode->data, file->offset + size);
+        if (data == NULL)
             return -1;
-        inode->data = new_data;
+        inode->data = data;
         inode->size = file->offset + size;
     }
 
@@ -200,7 +200,12 @@ static int _tmpfs_write(file_t *file, const void *buffer, uint32_t size)
 
 static int _tmpfs_read(file_t *file, void *buffer, uint32_t size)
 {
-    _tmpfs_inode_t *inode = file->internal;
+    vfs_node_t *vnode = file->internal;
+    _tmpfs_inode_t *inode = vnode->internal;
+
+    if (file->offset >= inode->size || inode->data == NULL)
+        return 0;
+
     if (file->offset + size > inode->size)
         size = inode->size - file->offset;
 
@@ -211,7 +216,9 @@ static int _tmpfs_read(file_t *file, void *buffer, uint32_t size)
 
 static int _tmpfs_seek(file_t *file, size_t offset, seek_mode_t mode)
 {
-    _tmpfs_inode_t *inode = file->internal;
+    vfs_node_t *vnode = file->internal;
+    _tmpfs_inode_t *inode = vnode->internal;
+
     switch (mode) {
     case SEEK_SET:
         file->offset = offset;
@@ -231,10 +238,12 @@ int _tmpfs_getstats(file_t *file, file_stats_t *stats)
     if (file->internal == NULL)
         return -1;
 
-    _tmpfs_inode_t *inode = file->internal;
+    vfs_node_t *vnode = file->internal;
+    _tmpfs_inode_t *inode = vnode->internal;
+
     *stats = (file_stats_t) {
         .size = inode->size,
-        .type = inode->vnode.type,
+        .type = vnode->type,
     };
 
     return 0;

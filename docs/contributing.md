@@ -2,7 +2,7 @@
 
 ## Communication
 
-Join our [Discord server](https://discord.gg/ZKp4u3N8) to discuss the project and get help.
+Join our [Discord server](https://discord.gg/ZsgBGMEaz5) to discuss the project and get help.
 
 ## Code submission policy
 

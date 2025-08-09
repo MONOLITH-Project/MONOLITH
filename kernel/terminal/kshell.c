@@ -221,8 +221,13 @@ static void _mkdir(int argc, char *argv[])
         kputs("\n[-] Usage: mkdir <dirname>");
         return;
     }
+    char path[PATH_MAX];
     for (int i = 0; i < argc - 1; i++) {
-        int result = file_create(argv[i + 1], DIRECTORY);
+        if (_get_path(argv[i + 1], path, sizeof(path)) < 0) {
+            kprintf("\n[-] Invalid path '%s'", argv[i + 1]);
+            continue;
+        }
+        int result = file_create(path, DIRECTORY);
         if (result < 0)
             kprintf("\n[-] Failed to create directory '%s'", argv[i + 1]);
     }
