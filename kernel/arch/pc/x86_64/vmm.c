@@ -23,7 +23,11 @@ __attribute__((used, section(".limine_requests"))) volatile struct limine_kernel
 
 __attribute__((used, section(".limine_requests"))) volatile struct limine_paging_mode_request
     limine_paging_request
-    = {.id = LIMINE_PAGING_MODE_REQUEST, .revision = 0};
+    = {
+        .id = LIMINE_PAGING_MODE_REQUEST,
+        .mode = LIMINE_PAGING_MODE_X86_64_4LVL,
+        .revision = 0,
+};
 
 static page_table_t *_pt_top_level;
 
@@ -44,17 +48,6 @@ void *vmm_get_hhdm_addr(void *phys_addr)
 void *vmm_get_lhdm_addr(void *virt_addr)
 {
     return virt_addr - limine_hhdm_request.response->offset;
-}
-
-static inline const char *_get_paging_mode_str(uint64_t mode)
-{
-    if (mode == LIMINE_PAGING_MODE_X86_64_4LVL) {
-        return "4-level paging";
-    } else if (mode == LIMINE_PAGING_MODE_X86_64_5LVL) {
-        return "5-level paging";
-    } else {
-        return "Unknown paging mode";
-    }
 }
 
 static void _vmmap_command(int argc, char *argv[])
@@ -80,69 +73,23 @@ static void _vminfo_command(int, char **)
      * I know this code is cursed, but it (probably) works.
      * TODO: refactor this shit.
      */
-    if (limine_paging_request.response->mode == LIMINE_PAGING_MODE_X86_64_5LVL) {
-        /* 5-level paging: _pt_top_level is PML5 */
-        for (int i = 0; i < 512; i++) {
-            if (_pt_top_level->entries[i].flags.present) {
-                present_pml5_entries++;
-
-                page_table_t *pml4 = vmm_get_hhdm_addr(
-                    (void *) (_pt_top_level->entries[i].raw & ~0xFFF));
-                for (int j = 0; j < 512; j++) {
-                    if (pml4->entries[j].flags.present) {
-                        present_pml4_entries++;
-
-                        page_table_t *pml3 = vmm_get_hhdm_addr(
-                            (void *) (pml4->entries[j].raw & ~0xFFF));
-                        for (int k = 0; k < 512; k++) {
-                            if (pml3->entries[k].flags.present) {
-                                present_pml3_entries++;
-
-                                page_table_t *pml2 = vmm_get_hhdm_addr(
-                                    (void *) (pml3->entries[k].raw & ~0xFFF));
-                                for (int l = 0; l < 512; l++) {
-                                    if (pml2->entries[l].flags.present) {
-                                        present_pml2_entries++;
-
-                                        page_table_t *pml1 = vmm_get_hhdm_addr(
-                                            (void *) (pml2->entries[l].raw & ~0xFFF));
-                                        for (int m = 0; m < 512; m++) {
-                                            if (pml1->entries[m].flags.present) {
-                                                present_pml1_entries++;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        /* 4-level paging: _pt_top_level is PML4 */
-        for (int i = 0; i < 512; i++) {
-            if (_pt_top_level->entries[i].flags.present) {
-                present_pml4_entries++;
-
-                page_table_t *pml3 = vmm_get_hhdm_addr(
-                    (void *) (_pt_top_level->entries[i].raw & ~0xFFF));
-                for (int j = 0; j < 512; j++) {
-                    if (pml3->entries[j].flags.present) {
-                        present_pml3_entries++;
-
-                        page_table_t *pml2 = vmm_get_hhdm_addr(
-                            (void *) (pml3->entries[j].raw & ~0xFFF));
-                        for (int k = 0; k < 512; k++) {
-                            if (pml2->entries[k].flags.present) {
-                                present_pml2_entries++;
-
-                                page_table_t *pml1 = vmm_get_hhdm_addr(
-                                    (void *) (pml2->entries[k].raw & ~0xFFF));
-                                for (int l = 0; l < 512; l++) {
-                                    if (pml1->entries[l].flags.present) {
-                                        present_pml1_entries++;
-                                    }
+    for (int i = 0; i < 512; i++) {
+        if (_pt_top_level->entries[i].flags.present) {
+            present_pml4_entries++;
+            page_table_t *pml3 = vmm_get_hhdm_addr(
+                (void *) (_pt_top_level->entries[i].raw & ~0xFFF));
+            for (int j = 0; j < 512; j++) {
+                if (pml3->entries[j].flags.present) {
+                    present_pml3_entries++;
+                    page_table_t *pml2 = vmm_get_hhdm_addr((void *) (pml3->entries[j].raw & ~0xFFF));
+                    for (int k = 0; k < 512; k++) {
+                        if (pml2->entries[k].flags.present) {
+                            present_pml2_entries++;
+                            page_table_t *pml1 = vmm_get_hhdm_addr(
+                                (void *) (pml2->entries[k].raw & ~0xFFF));
+                            for (int l = 0; l < 512; l++) {
+                                if (pml1->entries[l].flags.present) {
+                                    present_pml1_entries++;
                                 }
                             }
                         }
@@ -157,7 +104,6 @@ static void _vminfo_command(int, char **)
     size_t total_mapped_memory_mb = total_mapped_pages * PAGE_SIZE / 1048576;
 
     kprintf("\n[*] Virtual Memory Information:\n");
-    kprintf("[*] Paging mode: %s\n", _get_paging_mode_str(limine_paging_request.response->mode));
     kprintf("[*] Page Table Top Level Address: 0x%x\n", _pt_top_level);
     kprintf("[*] Page Size: %d bytes\n", PAGE_SIZE);
     if (limine_paging_request.response->mode == LIMINE_PAGING_MODE_X86_64_5LVL)
@@ -173,7 +119,7 @@ static void _vminfo_command(int, char **)
 void vmm_init(struct limine_memmap_response *memmap_response)
 {
     debug_log("[*] Initializing VMM...\n");
-    debug_log_fmt("[*] Using %s\n", _get_paging_mode_str(limine_paging_request.response->mode));
+    debug_log("[*] Using Level-4 paging\n");
 
     _pt_top_level = pmm_alloc(1);
     if (_pt_top_level == NULL) {
@@ -244,26 +190,16 @@ static inline void *_get_next_level(page_table_entry_t *entry)
 
 void vmm_map(uintptr_t virt, uintptr_t phys, size_t flags, bool flush)
 {
-    uint64_t pml5_index = PML5_GET_INDEX(virt);
     uint64_t pml4_index = PML4_GET_INDEX(virt);
     uint64_t pdpt_index = PML3_GET_INDEX(virt);
     uint64_t pdt_index = PML2_GET_INDEX(virt);
     uint64_t pt_index = PML1_GET_INDEX(virt);
 
-    page_table_t *pml4, *pdpt, *pdt, *pt;
+    page_table_t *pdpt, *pdt, *pt;
 
-    if (limine_paging_request.response->mode == LIMINE_PAGING_MODE_X86_64_5LVL) {
-        pml4 = _get_next_level(&_pt_top_level->entries[pml5_index]);
-        if (pml4 == NULL)
-            goto failure;
-        pdpt = _get_next_level(&pml4->entries[pdpt_index]);
-        if (pdpt == NULL)
-            goto failure;
-    } else {
-        pdpt = _get_next_level(&_pt_top_level->entries[pml4_index]);
-        if (pdpt == NULL)
-            goto failure;
-    }
+    pdpt = _get_next_level(&_pt_top_level->entries[pml4_index]);
+    if (pdpt == NULL)
+        goto failure;
 
     pdt = _get_next_level(&pdpt->entries[pdpt_index]);
     if (pdt == NULL)
@@ -299,26 +235,16 @@ void vmm_map_range(uintptr_t virt_addr, uintptr_t phys_addr, size_t size, size_t
 
 void vmm_unmap(uintptr_t virt, bool flush)
 {
-    uint64_t pml5_index = PML5_GET_INDEX(virt);
     uint64_t pml4_index = PML4_GET_INDEX(virt);
     uint64_t pdpt_index = PML3_GET_INDEX(virt);
     uint64_t pdt_index = PML2_GET_INDEX(virt);
     uint64_t pt_index = PML1_GET_INDEX(virt);
 
-    page_table_t *pml4, *pdpt, *pdt, *pt;
+    page_table_t *pdpt, *pdt, *pt;
 
-    if (limine_paging_request.response->mode == LIMINE_PAGING_MODE_X86_64_5LVL) {
-        pml4 = _get_next_level(&_pt_top_level->entries[pml5_index]);
-        if (pml4 == NULL)
-            goto failure;
-        pdpt = _get_next_level(&pml4->entries[pdpt_index]);
-        if (pdpt == NULL)
-            goto failure;
-    } else {
-        pdpt = _get_next_level(&_pt_top_level->entries[pml4_index]);
-        if (pdpt == NULL)
-            goto failure;
-    }
+    pdpt = _get_next_level(&_pt_top_level->entries[pml4_index]);
+    if (pdpt == NULL)
+        goto failure;
 
     pdt = _get_next_level(&pdpt->entries[pdpt_index]);
     if (pdt == NULL)
