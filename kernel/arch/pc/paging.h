@@ -42,7 +42,6 @@ typedef struct
 #define PML_GET_INDEX(ADDR, LEVEL) \
     (((uint64_t) ADDR & ((uint64_t) 0x1ff << (12 + LEVEL * 9))) >> (12 + LEVEL * 9))
 
-#define PML5_GET_INDEX(ADDR) PML_GET_INDEX(ADDR, 4)
 #define PML4_GET_INDEX(ADDR) PML_GET_INDEX(ADDR, 3)
 #define PML3_GET_INDEX(ADDR) PML_GET_INDEX(ADDR, 2)
 #define PML2_GET_INDEX(ADDR) PML_GET_INDEX(ADDR, 1)
