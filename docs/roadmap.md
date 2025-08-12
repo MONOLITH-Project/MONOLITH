@@ -56,9 +56,9 @@
 ## User Mode & Process Management
 
 - [x] Loading user programs.
-- [ ] System calls.
+- [x] System calls.
 - [ ] Task scheduler.
-- [ ] Run programs in userspace.
+- [x] Run programs in userspace.
 
 ## Architecture support
 

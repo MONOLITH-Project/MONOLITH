@@ -1,18 +1,14 @@
-static __inline void outb(unsigned char __value, unsigned short int __port)
+static inline long syscall0(long num)
 {
-    __asm__ __volatile__("outb %b0,%w1" : : "a"(__value), "Nd"(__port));
+    long ret;
+    __asm__ volatile("int $0x80" : "=a"(ret) : "a"(num) : "rcx", "r11", "memory");
+    return ret;
 }
 
-void serial_print(const char *str)
+int main(int argc, char **argv)
 {
-    while (*str) {
-        outb(*str, 0x3F8);
-        str++;
-    }
-}
-
-int main()
-{
-    serial_print("Hello World\n");
+    syscall0(0);
+    while (1)
+        ;
     return 0;
 }

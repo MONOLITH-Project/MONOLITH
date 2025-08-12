@@ -23,7 +23,7 @@ void gdt_set_gate(int index, uint32_t base, uint32_t limit, uint8_t access, uint
  * Load the Task State Segment.
  * https://wiki.osdev.org/Task_State_Segment
  */
-void tss_load(void *);
+void gdt_tss_load(void *);
 
 /*
  * Flush the GDT.
@@ -35,4 +35,4 @@ void gdt_flush();
  * Flush the TSS.
  * https://wiki.osdev.org/Task_State_Segment#Loading_the_TSS
  */
-void tss_flush();
+void gdt_flush_tss();

@@ -23,11 +23,7 @@ __attribute__((used, section(".limine_requests"))) volatile struct limine_kernel
 
 __attribute__((used, section(".limine_requests"))) volatile struct limine_paging_mode_request
     limine_paging_request
-    = {
-        .id = LIMINE_PAGING_MODE_REQUEST,
-        .mode = LIMINE_PAGING_MODE_X86_64_4LVL,
-        .revision = 0,
-};
+    = {.id = LIMINE_PAGING_MODE_REQUEST, .mode = LIMINE_PAGING_MODE_X86_64_4LVL, .revision = 0};
 
 static page_table_t *_pt_top_level;
 
@@ -182,7 +178,7 @@ static inline void *_get_next_level(page_table_entry_t *entry)
         pt = pmm_alloc(1);
         if (pt == NULL)
             return NULL;
-        entry->raw = ((uint64_t) pt) | 0x03;
+        entry->raw = ((uint64_t) pt) | 0b111;
         return vmm_get_hhdm_addr(pt);
     }
     return vmm_get_hhdm_addr((void *) (entry->raw & ~0xFFF));
