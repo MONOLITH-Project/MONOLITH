@@ -7,7 +7,10 @@
 
 #include <stdint.h>
 
-struct interrupt_registers
+#define IDT_TYPE_INTERRUPT 0x8E
+#define IDT_TYPE_SOFTWARE 0xEF
+
+typedef struct interrupt_registers
 {
     uint64_t r15;
     uint64_t r14;
@@ -32,7 +35,7 @@ struct interrupt_registers
     uint64_t rflags;
     uint64_t rsp;
     uint64_t ss;
-} __attribute__((packed));
+} __attribute__((packed)) interrupt_registers_t;
 
 /*
  * Initialize the Interrupt Descriptor Table
@@ -44,7 +47,7 @@ void idt_init(void);
  * Set the IDT gate
  * https://wiki.osdev.org/Interrupts_Tutorial#Assembling
  */
-void idt_set_gate(uint8_t num, void *handler);
+void idt_set_gate(uint8_t num, void *handler, uint8_t flags);
 
 /*
  * Flush the IDT

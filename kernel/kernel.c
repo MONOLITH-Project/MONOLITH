@@ -14,6 +14,7 @@
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
 #include <kernel/serial.h>
+#include <kernel/syscall/syscall.h>
 #include <kernel/terminal/terminal.h>
 #include <kernel/timer.h>
 #include <libs/flanterm/src/flanterm_backends/fb.h>
@@ -56,6 +57,7 @@ void kmain()
     vmm_init(limine_mmap_request.response);
     heap_init(10);
     timer_init();
+    syscalls_init();
     initrd_load_modules(limine_module_request.response);
     tmpfs_new_drive();
 

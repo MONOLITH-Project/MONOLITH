@@ -21,8 +21,8 @@ gdt_flush:
 	mov ss, ax
 	ret
 
-global tss_flush
-tss_flush:
+global gdt_flush_tss
+gdt_flush_tss:
 	mov ax, 0x2B
 	ltr ax
 	ret

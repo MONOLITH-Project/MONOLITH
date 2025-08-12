@@ -3,16 +3,18 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/arch/pc/asm.h>
+#include <kernel/debug.h>
 #include <kernel/elfloader/elf.h>
 #include <kernel/elfloader/loader.h>
+#include <kernel/elfloader/usermode.h>
 #include <kernel/fs/vfs.h>
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
-#include <kernel/debug.h>
 #include <stdint.h>
 
-typedef int (*func_t)();
+typedef int (*func_t)(int argc, char **argv);
 
 int load_elf(file_t *file)
 {
@@ -97,10 +99,21 @@ int load_elf(file_t *file)
         current_addr += PAGE_UP(phs[i].section_file_size);
     }
 
+    void *stack = pmm_alloc(10);
+    vmm_map_range(0x00007ffffffff000LL, (uintptr_t) stack, 10, 0b111, true);
     kfree(phs);
-    func_t entry_point = (func_t) header.entry_offset;
-    entry_point();
+
+    void *kernelstack = pmm_alloc(10);
+    vmm_map_range(-(10LL * PAGE_SIZE), (uintptr_t) kernelstack, 10 * PAGE_SIZE, 0b111, true);
+
+    asm_write_cr3(asm_read_cr3());
+    uintptr_t stack_top = 0x00007ffffffff000LL + 10 * PAGE_SIZE;
+    jump_usermode((func_t) header.entry_offset, (void *) stack_top);
+
     pmm_free(address_space, pages);
+    for (int i = 0; i < header.pht_entry_count; i++)
+        vmm_unmap(phs[i].section_vaddr, true);
+    vmm_unmap_range(-(10LL * PAGE_SIZE), 10 * PAGE_SIZE, true);
 
     return 0;
 }
