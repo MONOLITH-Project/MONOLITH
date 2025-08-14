@@ -224,9 +224,10 @@ void vmm_map_range(uintptr_t virt_addr, uintptr_t phys_addr, size_t size, size_t
         virt_addr,
         virt_addr + size);
     size_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE; /* Round up */
-    for (size_t i = 0; i < num_pages; i++) {
-        vmm_map(virt_addr + i * PAGE_SIZE, phys_addr + i * PAGE_SIZE, flags, flush);
-    }
+    for (size_t i = 0; i < num_pages; i++)
+        vmm_map(virt_addr + i * PAGE_SIZE, phys_addr + i * PAGE_SIZE, flags, false);
+    if (flush)
+        asm_write_cr3(asm_read_cr3());
 }
 
 void vmm_unmap(uintptr_t virt, bool flush)
