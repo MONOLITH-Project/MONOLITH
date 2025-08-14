@@ -41,10 +41,12 @@
 
 section .text
 extern sys_hello
+extern sys_request_fb
 
 section .rodata
 syscall_table:
     dq sys_hello
+    dq sys_request_fb
 syscall_table_end:
 
 section .text
