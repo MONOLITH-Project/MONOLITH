@@ -11,3 +11,7 @@
 	url = https://github.com/limine-bootloader/limine/
 	branch = v9.x-binary
 	shallow = true
+[submodule "libs/microui"]
+	path = libs/microui
+	url = https://github.com/rxi/microui/
+    shallow = true
