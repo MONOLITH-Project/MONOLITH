@@ -204,7 +204,6 @@ void term_init(struct limine_framebuffer_response *response)
         0);
     _index = 0;
 
-    ps2_init_keyboard();
     kshell_init();
     memstat_init_cmds();
     _term_initialized = true;
