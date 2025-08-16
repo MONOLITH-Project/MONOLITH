@@ -35,12 +35,21 @@ static void _mouse_handler()
     case 2:
         _mouse_byte[2] = asm_inb(PS2_DATA_PORT);
         _mouse_cycle = 0;
+        ps2_mouse_event_t event;
+        event.left_button = _mouse_byte[0] & 0x01;
+        event.right_button = _mouse_byte[0] & 0x02;
+        event.middle_button = _mouse_byte[0] & 0x04;
+        event.always_on = _mouse_byte[0] & 0x08;
+        event.x_sign = _mouse_byte[0] & 0x10;
+        event.y_sign = _mouse_byte[0] & 0x20;
+        event.x_overflow = _mouse_byte[0] & 0x40;
+        event.y_overflow = _mouse_byte[0] & 0x80;
+        event.x_movement = _mouse_byte[1];
+        event.y_movement = _mouse_byte[2];
+
         for (int i = 0; i < _mouse_event_handlers_capacity; i++) {
-            if (_event_handlers[i] != NULL) {
-                ps2_mouse_event_t event;
-                memcpy(&event, _mouse_byte, sizeof(_mouse_byte));
+            if (_event_handlers[i] != NULL)
                 _event_handlers[i](event);
-            }
         }
         break;
     }
@@ -77,22 +86,25 @@ void ps2_mouse_init()
     irq_register_handler(12, _mouse_handler);
 }
 
-void ps2_mouse_register_event_handler(ps2_mouse_event_handler_t handler)
+int ps2_mouse_register_event_handler(ps2_mouse_event_handler_t handler)
 {
     if (_mouse_event_handlers_count + 1 == _mouse_event_handlers_capacity) {
-        ps2_mouse_event_handler_t *new_ptr
-            = krealloc(_event_handlers, _mouse_event_handlers_capacity * 2);
+        ps2_mouse_event_handler_t *new_ptr = krealloc(
+            _event_handlers, _mouse_event_handlers_capacity * 2 * sizeof(ps2_mouse_event_handler_t));
         if (new_ptr == NULL)
-            return;
+            return -1;
         memset(new_ptr + _mouse_event_handlers_capacity, 0, _mouse_event_handlers_capacity);
         _mouse_event_handlers_capacity *= 2;
         _event_handlers = new_ptr;
     }
+
     for (int i = 0; i < _mouse_event_handlers_capacity; i++) {
         if (_event_handlers[i] == NULL) {
             _event_handlers[i] = handler;
             _mouse_event_handlers_count++;
-            return;
+            return 0;
         }
     }
+
+    return -1;
 }

@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "kernel/input/ps2_keyboard.h"
-#include "kernel/input/ps2_mouse.h"
 #include <kernel/arch/pc/gdt.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/arch/pc/sse.h>
@@ -12,6 +10,8 @@
 #include <kernel/fs/initrdfs.h>
 #include <kernel/fs/tmpfs.h>
 #include <kernel/fs/vfs.h>
+#include <kernel/input/ps2_keyboard.h>
+#include <kernel/input/ps2_mouse.h>
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>

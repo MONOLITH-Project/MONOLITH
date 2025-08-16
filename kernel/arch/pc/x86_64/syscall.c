@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include "kernel/input/ps2_keyboard.h"
+#include "kernel/input/ps2_mouse.h"
 #include <kernel/arch/pc/idt.h>
 #include <kernel/debug.h>
 #include <kernel/klibc/memory.h>
@@ -46,5 +48,11 @@ int sys_request_fb(void *fb_info)
     memcpy(fb_info, &hhfb, sizeof(void *));
     memcpy(fb_info + sizeof(void *), &width, sizeof(uint64_t));
     memcpy(fb_info + 2 * sizeof(void *), &height, sizeof(uint64_t));
+    return 0;
+}
+
+int sys_register_mouse_handler(ps2_mouse_event_handler_t handler)
+{
+    ps2_mouse_register_event_handler(handler);
     return 0;
 }

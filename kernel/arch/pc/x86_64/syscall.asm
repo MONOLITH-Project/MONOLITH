@@ -42,11 +42,13 @@
 section .text
 extern sys_hello
 extern sys_request_fb
+extern sys_register_mouse_handler
 
 section .rodata
 syscall_table:
     dq sys_hello
     dq sys_request_fb
+    dq sys_register_mouse_handler
 syscall_table_end:
 
 section .text

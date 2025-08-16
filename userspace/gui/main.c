@@ -9,11 +9,21 @@
 #include <string.h>
 
 #include "./framebuffer.h"
+#include "./mouse.h"
 #include "./renderer.h"
 
 static char logbuf[64000];
 static int logbuf_updated = 0;
 static float bg[3] = {90, 95, 100};
+
+static int mouse_pos_x = 0;
+static int mouse_pos_y = 0;
+static bool mouse_right_click = false;
+static bool mouse_left_click = false;
+
+static mu_Context ctx;
+framebuffer_t fb;
+uint32_t framebuffer[2073600];
 
 static void write_log(const char *text)
 {
@@ -234,6 +244,14 @@ static void style_window(mu_Context *ctx)
     }
 }
 
+static void draw_cursor()
+{
+    r_draw_icon(
+        MU_ICON_CLOSE,
+        (mu_Rect) {.x = mouse_pos_x, .y = mouse_pos_y},
+        (mu_Color) {.a = 255, .r = 0, .g = 0, .b = 0});
+}
+
 static void process_frame(mu_Context *ctx)
 {
     mu_begin(ctx);
@@ -273,10 +291,30 @@ static int text_height(mu_Font font)
     return r_get_text_height();
 }
 
-static mu_Context ctx;
-framebuffer_t fb;
+static void mouse_handler(ps2_mouse_event_t event)
+{
+    int delta_x = event.x_sign ? (event.x_movement | 0xFFFFFF00) : event.x_movement;
+    int delta_y = event.y_sign ? (event.y_movement | 0xFFFFFF00) : event.y_movement;
+    int new_mouse_x = mouse_pos_x + delta_x;
+    int new_mouse_y = mouse_pos_y - delta_y;
+    if (new_mouse_x >= 0 && (size_t) new_mouse_x < fb.width)
+        mouse_pos_x = new_mouse_x;
+    if (new_mouse_y >= 0 && (size_t) new_mouse_y < fb.height)
+        mouse_pos_y = new_mouse_y;
 
-uint32_t framebuffer[2073600];
+    mouse_right_click = event.right_button;
+    mouse_left_click = event.left_button;
+
+    mu_input_mousemove(&ctx, mouse_pos_x, mouse_pos_y);
+    if (mouse_right_click)
+        mu_input_mousedown(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_RIGHT);
+    else
+        mu_input_mouseup(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_RIGHT);
+    if (mouse_left_click)
+        mu_input_mousedown(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_LEFT);
+    else
+        mu_input_mouseup(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_LEFT);
+}
 
 int main()
 {
@@ -284,6 +322,7 @@ int main()
     __asm__ volatile("int $0x80" : "=a"(result) : "a"(0x01), "D"(&fb) : "memory");
     for (size_t i = 0; i < (fb.height * fb.width); i++)
         framebuffer[i] = 0xff000000;
+    register_mouse_event_handler(mouse_handler);
 
     // SDL_Init(SDL_INIT_EVERYTHING);
     r_init();
@@ -344,6 +383,7 @@ int main()
                 break;
             }
         }
+        draw_cursor();
         r_present();
     }
 }
