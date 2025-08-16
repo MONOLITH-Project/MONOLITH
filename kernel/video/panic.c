@@ -51,6 +51,8 @@ void _dump_registers(struct interrupt_registers *regs)
 {
     char buffer[32];
     _print("\n    Registers state:");
+    _print("\n\tRIP = 0x");
+    _print_hex(buffer, regs->rip);
     _print("\n\tRAX = 0x");
     _print_hex(buffer, regs->rax);
     _print("\n\tRBX = 0x");
