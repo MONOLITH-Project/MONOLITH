@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "kernel/input/ps2_keyboard.h"
 #include "kernel/input/ps2_mouse.h"
 #include <kernel/arch/pc/idt.h>
 #include <kernel/debug.h>
@@ -44,7 +43,12 @@ int sys_request_fb(void *fb_info)
     size_t height = framebuffer_request.response->framebuffers[0]->height;
     void *lhfb = vmm_get_lhdm_addr(framebuffer_request.response->framebuffers[0]->address);
     void *hhfb = framebuffer_request.response->framebuffers[0]->address;
-    vmm_map_range((uintptr_t) hhfb, (uintptr_t) lhfb, width * height * 4, 0b111, true);
+    vmm_map_range(
+        (uintptr_t) hhfb,
+        (uintptr_t) lhfb,
+        width * height * 4,
+        PTFLAG_P | PTFLAG_RW | PTFLAG_US | PTFLAG_PAT,
+        true);
     memcpy(fb_info, &hhfb, sizeof(void *));
     memcpy(fb_info + sizeof(void *), &width, sizeof(uint64_t));
     memcpy(fb_info + 2 * sizeof(void *), &height, sizeof(uint64_t));
