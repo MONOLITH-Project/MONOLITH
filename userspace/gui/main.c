@@ -302,18 +302,22 @@ static void mouse_handler(ps2_mouse_event_t event)
     if (new_mouse_y >= 0 && (size_t) new_mouse_y < fb.height)
         mouse_pos_y = new_mouse_y;
 
+    mu_input_mousemove(&ctx, mouse_pos_x, mouse_pos_y);
+
+    if (event.right_button != mouse_right_click) {
+        if (event.right_button)
+            mu_input_mousedown(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_RIGHT);
+        else
+            mu_input_mouseup(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_RIGHT);
+    }
+    if (event.left_button != mouse_left_click) {
+        if (event.left_button)
+            mu_input_mousedown(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_LEFT);
+        else
+            mu_input_mouseup(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_LEFT);
+    }
     mouse_right_click = event.right_button;
     mouse_left_click = event.left_button;
-
-    mu_input_mousemove(&ctx, mouse_pos_x, mouse_pos_y);
-    if (mouse_right_click)
-        mu_input_mousedown(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_RIGHT);
-    else
-        mu_input_mouseup(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_RIGHT);
-    if (mouse_left_click)
-        mu_input_mousedown(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_LEFT);
-    else
-        mu_input_mouseup(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_LEFT);
 }
 
 int main()
