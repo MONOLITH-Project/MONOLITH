@@ -13,5 +13,5 @@
 	shallow = true
 [submodule "libs/microui"]
 	path = libs/microui
-	url = https://github.com/rxi/microui/
-    shallow = true
+	url = https://github.com/rxi/microui
+	shallow = true
