@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <microui.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "./framebuffer.h"
-#include "./mouse.h"
+#include "./input.h"
 #include "./renderer.h"
 
 static char logbuf[64000];
@@ -261,23 +262,6 @@ static void process_frame(mu_Context *ctx)
     mu_end(ctx);
 }
 
-// static const char button_map[256] = {
-//     [SDL_BUTTON_LEFT & 0xff] = MU_MOUSE_LEFT,
-//     [SDL_BUTTON_RIGHT & 0xff] = MU_MOUSE_RIGHT,
-//     [SDL_BUTTON_MIDDLE & 0xff] = MU_MOUSE_MIDDLE,
-// };
-
-// static const char key_map[256] = {
-//     [SDLK_LSHIFT & 0xff] = MU_KEY_SHIFT,
-//     [SDLK_RSHIFT & 0xff] = MU_KEY_SHIFT,
-//     [SDLK_LCTRL & 0xff] = MU_KEY_CTRL,
-//     [SDLK_RCTRL & 0xff] = MU_KEY_CTRL,
-//     [SDLK_LALT & 0xff] = MU_KEY_ALT,
-//     [SDLK_RALT & 0xff] = MU_KEY_ALT,
-//     [SDLK_RETURN & 0xff] = MU_KEY_RETURN,
-//     [SDLK_BACKSPACE & 0xff] = MU_KEY_BACKSPACE,
-// };
-
 static int text_width(mu_Font font, const char *text, int len)
 {
     if (len == -1) {
@@ -291,7 +275,7 @@ static int text_height(mu_Font font)
     return r_get_text_height();
 }
 
-static void mouse_handler(ps2_mouse_event_t event)
+static void mouse_handler(mouse_event_t event)
 {
     int delta_x = event.x_sign ? (event.x_movement | 0xFFFFFF00) : event.x_movement;
     int delta_y = event.y_sign ? (event.y_movement | 0xFFFFFF00) : event.y_movement;
@@ -320,6 +304,58 @@ static void mouse_handler(ps2_mouse_event_t event)
     mouse_left_click = event.left_button;
 }
 
+static const char key_map[256] = {
+    [KEY_LSHIFT] = MU_KEY_SHIFT,
+    [KEY_RSHIFT] = MU_KEY_SHIFT,
+    [KEY_CTRL] = MU_KEY_CTRL,
+    [KEY_ALT] = MU_KEY_ALT,
+    [KEY_RETURN] = MU_KEY_RETURN,
+    [KEY_BACKSPACE] = MU_KEY_BACKSPACE,
+};
+
+static const char char_map[256] = {0x0, 0x0, '1', '2',  '3',  '4', '5',  '6',  '7', '8', '9',
+                                   '0', '-', '=', '\b', '\t', 'q', 'w',  'e',  'r', 't', 'y',
+                                   'u', 'i', 'o', 'p',  '[',  ']', '\n', 0x0,  'a', 's', 'd',
+                                   'f', 'g', 'h', 'j',  'k',  'l', ';',  '\'', '`', 0x0, '\\',
+                                   'z', 'x', 'c', 'v',  'b',  'n', 'm',  ',',  '.', '/', 0x0,
+                                   '*', 0x0, ' ', 0x0,  0x0,  0x0, 0x0,  0x0,  0x0, 0x0, 0x0,
+                                   0x0, 0x0, 0x0, 0x0,  0x0,  '7', '8',  '9',  '-', '4', '5',
+                                   '6', '+', '1', '2',  '3',  '0', '.',  0x0,  0x0, 0x0};
+static const char char_map_shifted[256] = {0x0, 0x0, '!', '@',  '#',  '$', '%',  '^', '&', '*', '(',
+                                           ')', '_', '+', '\b', '\t', 'Q', 'W',  'E', 'R', 'T', 'Y',
+                                           'U', 'I', 'O', 'P',  '{',  '}', '\n', 0x0, 'A', 'S', 'D',
+                                           'F', 'G', 'H', 'J',  'K',  'L', ':',  '"', '~', 0x0, '|',
+                                           'Z', 'X', 'C', 'V',  'B',  'N', 'M',  '<', '>', '?', 0x0,
+                                           '*', 0x0, ' ', 0x0,  0x0,  0x0, 0x0,  0x0, 0x0, 0x0, 0x0,
+                                           0x0, 0x0, 0x0, 0x0,  0x0,  0x0, 0x0,  0x0, '-', 0x0, 0x0,
+                                           0x0, '+', 0x0, 0x0,  0x0,  0x0, 0x0,  0x0, 0x0, 0x0};
+
+static bool is_shifted = false;
+static bool is_capslock = false;
+static void keyboard_handler(keyboard_event_t event)
+{
+    void (*key_action)(mu_Context *ctx, int key) = event.action == KEYBOARD_PRESSED
+                                                           || event.action == KEYBOARD_HOLD
+                                                       ? mu_input_keydown
+                                                       : mu_input_keyup;
+    if (event.scancode == KEY_LSHIFT || event.scancode == KEY_RSHIFT)
+        is_shifted = event.action == KEYBOARD_PRESSED || event.action == KEYBOARD_HOLD;
+    if (event.action == KEYBOARD_PRESSED && event.scancode == KEY_CAPSLOCK)
+        is_capslock = !is_capslock;
+
+    if (key_map[event.scancode])
+        key_action(&ctx, key_map[event.scancode]);
+    else if (
+        char_map[event.scancode]
+        && (event.action == KEYBOARD_PRESSED || event.action == KEYBOARD_HOLD)) {
+        char text[2]
+            = {is_shifted || is_capslock ? char_map_shifted[event.scancode]
+                                         : char_map[event.scancode],
+               '\0'};
+        mu_input_text(&ctx, text);
+    }
+}
+
 int main()
 {
     int result;
@@ -327,8 +363,8 @@ int main()
     for (size_t i = 0; i < (fb.height * fb.width); i++)
         framebuffer[i] = 0xff000000;
     register_mouse_event_handler(mouse_handler);
+    register_keyboard_event_handler(keyboard_handler);
 
-    // SDL_Init(SDL_INIT_EVERYTHING);
     r_init();
 
     /* init microui */
@@ -338,33 +374,6 @@ int main()
 
     /* main loop */
     for (;;) {
-        /* handle SDL events */
-        // SDL_Event e;
-        // while (SDL_PollEvent(&e)) {
-        //   switch (e.type) {
-        //     case SDL_QUIT: exit(EXIT_SUCCESS); break;
-        //     case SDL_MOUSEMOTION: mu_input_mousemove(ctx, e.motion.x, e.motion.y); break;
-        //     case SDL_MOUSEWHEEL: mu_input_scroll(ctx, 0, e.wheel.y * -30); break;
-        //     case SDL_TEXTINPUT: mu_input_text(ctx, e.text.text); break;
-
-        //     case SDL_MOUSEBUTTONDOWN:
-        //     case SDL_MOUSEBUTTONUP: {
-        //       int b = button_map[e.button.button & 0xff];
-        //       if (b && e.type == SDL_MOUSEBUTTONDOWN) { mu_input_mousedown(ctx, e.button.x, e.button.y, b); }
-        //       if (b && e.type ==   SDL_MOUSEBUTTONUP) { mu_input_mouseup(ctx, e.button.x, e.button.y, b);   }
-        //       break;
-        //     }
-
-        //     case SDL_KEYDOWN:
-        //     case SDL_KEYUP: {
-        //       int c = key_map[e.key.keysym.sym & 0xff];
-        //       if (c && e.type == SDL_KEYDOWN) { mu_input_keydown(ctx, c); }
-        //       if (c && e.type ==   SDL_KEYUP) { mu_input_keyup(ctx, c);   }
-        //       break;
-        //     }
-        //   }
-        // }
-
         /* process frame */
         process_frame(&ctx);
 

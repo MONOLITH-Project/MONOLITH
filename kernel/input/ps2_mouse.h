@@ -23,9 +23,9 @@ typedef struct
     };
     uint8_t x_movement;
     uint8_t y_movement;
-} ps2_mouse_event_t;
+} mouse_event_t;
 
-typedef void (*ps2_mouse_event_handler_t)(ps2_mouse_event_t);
+typedef void (*ps2_mouse_event_handler_t)(mouse_event_t);
 
 void ps2_mouse_init();
 int ps2_mouse_register_event_handler(ps2_mouse_event_handler_t handler);

@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 #define PS2_DATA_PORT 0x60
+#define PS2_STATUS_PORT 0x64
 #define PS2_COMMAND_PORT 0x64
 
 uint8_t _mouse_cycle = 0;
@@ -21,8 +22,18 @@ static ps2_mouse_event_handler_t *_event_handlers = NULL;
 static uint16_t _mouse_event_handlers_count = 0;
 static uint16_t _mouse_event_handlers_capacity = 16;
 
-static void _mouse_handler()
+static void _mouse_irq()
 {
+    uint8_t status = asm_inb(PS2_STATUS_PORT);
+    if (!(status & 0x01))
+        return;
+
+    /* Skip packet if it's not from mouse */
+    if (!(status & 0x20)) {
+        _mouse_cycle = 0;
+        return;
+    }
+
     switch (_mouse_cycle) {
     case 0:
         _mouse_byte[0] = asm_inb(PS2_DATA_PORT);
@@ -35,7 +46,7 @@ static void _mouse_handler()
     case 2:
         _mouse_byte[2] = asm_inb(PS2_DATA_PORT);
         _mouse_cycle = 0;
-        ps2_mouse_event_t event;
+        mouse_event_t event;
         event.left_button = _mouse_byte[0] & 0x01;
         event.right_button = _mouse_byte[0] & 0x02;
         event.middle_button = _mouse_byte[0] & 0x04;
@@ -83,7 +94,7 @@ void ps2_mouse_init()
 
     _event_handlers = kmalloc(_mouse_event_handlers_capacity * sizeof(ps2_mouse_event_handler_t));
     memset(_event_handlers, 0, _mouse_event_handlers_capacity * sizeof(ps2_mouse_event_handler_t));
-    irq_register_handler(12, _mouse_handler);
+    irq_register_handler(12, _mouse_irq);
 }
 
 int ps2_mouse_register_event_handler(ps2_mouse_event_handler_t handler)

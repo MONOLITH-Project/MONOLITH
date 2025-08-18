@@ -29,7 +29,6 @@ typedef enum : uint8_t {
     KEY_F11 = 0x57,
     KEY_F12 = 0x58,
     KEY_PRINTSCREEN = 0x37,
-    KEY_PAUSE = 0x45,
     KEY_INSERT = 0x52,
     KEY_HOME = 0x47,
     KEY_PAGEUP = 0x49,
@@ -40,22 +39,19 @@ typedef enum : uint8_t {
     KEY_LEFT = 0x4B,
     KEY_DOWN = 0x50,
     KEY_RIGHT = 0x4D,
-} ps2_scancode_t;
+} keyboard_scancode_t;
 
 typedef enum : uint8_t {
     KEYBOARD_HOLD = 0x00,
     KEYBOARD_PRESSED = 0x01,
     KEYBOARD_RELEASED = 0x02,
-} ps2_action_t;
+} keyboard_action_t;
 
-typedef union {
-    uint8_t raw;
-    struct
-    {
-        uint8_t scancode : 7;  /* Use 7 bits for scancode (0-127) */
-        uint8_t released : 1;  /* Use 1 bit for released flag (bit 7) */
-    };
-} ps2_event_t;
+typedef struct
+{
+    keyboard_scancode_t scancode;
+    keyboard_action_t action;
+} keyboard_event_t;
 
 typedef struct
 {
@@ -86,9 +82,7 @@ static const keyboard_layout_t keyboard_layouts[] = {
     },
 };
 
+typedef void (*keyboard_event_handler_t)(keyboard_event_t);
+
 void ps2_init_keyboard();
-ps2_event_t ps2_wait_for_event();
-bool ps2_is_key_down(ps2_scancode_t);
-bool ps2_is_capslock_on();
-ps2_action_t ps2_get_event_action(ps2_event_t);
-ps2_action_t ps2_get_key_state(ps2_scancode_t);
+int ps2_keyboard_register_event_handler(keyboard_event_handler_t handler);
