@@ -14,6 +14,8 @@
 extern framebuffer_t fb;
 extern uint32_t framebuffer[2073600];
 
+static mu_Rect _clip_rect;
+
 static inline uint32_t muColor2ARGB(mu_Color color)
 {
     return (color.a << 24) | (color.r << 16) | (color.g << 8) | color.b;
@@ -21,41 +23,46 @@ static inline uint32_t muColor2ARGB(mu_Color color)
 
 static void blit_quad(mu_Rect dst, mu_Rect src, mu_Color color)
 {
-    /* Prepack the tint color */
-    for (int dy = 0; dy < dst.h; dy++) {
-        size_t sy = src.y + (dy * src.h) / dst.h; /* scale if needed */
-        size_t fy = dst.y + dy;
-        if (fy < 0 || fy >= fb.height)
-            continue;
+    /* Check if destination is entirely outside the clip rectangle */
+    if (dst.x + dst.w <= _clip_rect.x || dst.x >= _clip_rect.x + _clip_rect.w
+        || dst.y + dst.h <= _clip_rect.y || dst.y >= _clip_rect.y + _clip_rect.h)
+        return;
 
-        for (int dx = 0; dx < dst.w; dx++) {
-            size_t sx = src.x + (dx * src.w) / dst.w; /* scale if needed */
+    /* Calculate visible region within destination */
+    int start_dx = mu_max(0, _clip_rect.x - dst.x);
+    int end_dx = mu_min(dst.w, _clip_rect.x + _clip_rect.w - dst.x);
+    int start_dy = mu_max(0, _clip_rect.y - dst.y);
+    int end_dy = mu_min(dst.h, _clip_rect.y + _clip_rect.h - dst.y);
+
+    /* Skip if no visible region */
+    if (start_dx >= end_dx || start_dy >= end_dy)
+        return;
+
+    /* Process visible pixels */
+    for (int dy = start_dy; dy < end_dy; dy++) {
+        size_t sy = src.y + (dy * src.h) / dst.h;
+        size_t fy = dst.y + dy;
+        for (int dx = start_dx; dx < end_dx; dx++) {
+            size_t sx = src.x + (dx * src.w) / dst.w;
             size_t fx = dst.x + dx;
-            if (fx < 0 || fx >= fb.width)
-                continue;
 
             uint8_t alpha = atlas_texture[sy * ATLAS_WIDTH + sx];
             if (alpha == 0)
                 continue;
 
-            /* Blend with framebuffer (simple alpha blend) */
+            /* Blend pixel with framebuffer */
             uint32_t *dst_px = &framebuffer[fy * fb.width + fx];
             uint32_t dst_col = *dst_px;
-
             uint8_t dr = (dst_col >> 16) & 0xFF;
             uint8_t dg = (dst_col >> 8) & 0xFF;
             uint8_t db = dst_col & 0xFF;
             uint8_t da = (dst_col >> 24) & 0xFF;
 
-            uint8_t sr = color.r;
-            uint8_t sg = color.g;
-            uint8_t sb = color.b;
             uint8_t sa = (color.a * alpha) / 255;
-
-            uint8_t out_a = sa + ((da * (255 - sa)) / 255);
-            uint8_t out_r = (sr * sa + dr * (255 - sa)) / 255;
-            uint8_t out_g = (sg * sa + dg * (255 - sa)) / 255;
-            uint8_t out_b = (sb * sa + db * (255 - sa)) / 255;
+            uint8_t out_a = sa + (da * (255 - sa)) / 255;
+            uint8_t out_r = (color.r * sa + dr * (255 - sa)) / 255;
+            uint8_t out_g = (color.g * sa + dg * (255 - sa)) / 255;
+            uint8_t out_b = (color.b * sa + db * (255 - sa)) / 255;
 
             *dst_px = (out_a << 24) | (out_r << 16) | (out_g << 8) | out_b;
         }
@@ -64,7 +71,7 @@ static void blit_quad(mu_Rect dst, mu_Rect src, mu_Color color)
 
 void r_init()
 {
-    /* TODO */
+    _clip_rect = mu_rect(0, 0, fb.width, fb.height);
 }
 
 void r_draw_rect(mu_Rect rect, mu_Color color)
@@ -115,7 +122,26 @@ int r_get_text_height(void)
 
 void r_set_clip_rect(mu_Rect rect)
 {
-    /* TODO */
+    if (rect.x < 0) {
+        rect.w += rect.x;
+        rect.x = 0;
+    }
+    if (rect.y < 0) {
+        rect.h += rect.y;
+        rect.y = 0;
+    }
+
+    if ((size_t) rect.x + rect.w > fb.width)
+        rect.w = fb.width - rect.x;
+    if ((size_t) rect.y + rect.h > fb.height)
+        rect.h = fb.height - rect.y;
+
+    if (rect.w < 0)
+        rect.w = 0;
+    if (rect.h < 0)
+        rect.h = 0;
+
+    _clip_rect = rect;
 }
 
 void r_clear(mu_Color clr)
