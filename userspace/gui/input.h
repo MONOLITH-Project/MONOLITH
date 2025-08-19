@@ -75,3 +75,5 @@ typedef void (*keyboard_event_handler_t)(keyboard_event_t);
 
 int register_mouse_event_handler(mouse_event_handler_t);
 int register_keyboard_event_handler(keyboard_event_handler_t);
+void init_input();
+void draw_cursor();

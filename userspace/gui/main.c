@@ -13,26 +13,21 @@
 #include "./input.h"
 #include "./renderer.h"
 
-static char logbuf[64000];
-static int logbuf_updated = 0;
-static float bg[3] = {90, 95, 100};
+static char _logbuf[64000];
+static int _logbuf_updated = 0;
+static float _bg[3] = {90, 95, 100};
 
-static int mouse_pos_x = 0;
-static int mouse_pos_y = 0;
-static bool mouse_right_click = false;
-static bool mouse_left_click = false;
-
-static mu_Context ctx;
+mu_Context ctx;
 framebuffer_t fb;
 uint32_t framebuffer[2073600];
 
 static void write_log(const char *text)
 {
-    if (logbuf[0]) {
-        strcat(logbuf, "\n");
+    if (_logbuf[0]) {
+        strcat(_logbuf, "\n");
     }
-    strcat(logbuf, text);
-    logbuf_updated = 1;
+    strcat(_logbuf, text);
+    _logbuf_updated = 1;
 }
 
 static void log_window(mu_Context *ctx)
@@ -43,11 +38,11 @@ static void log_window(mu_Context *ctx)
         mu_begin_panel(ctx, "Log Output");
         mu_Container *panel = mu_get_current_container(ctx);
         mu_layout_row(ctx, 1, (int[]) {-1}, -1);
-        mu_text(ctx, logbuf);
+        mu_text(ctx, _logbuf);
         mu_end_panel(ctx);
-        if (logbuf_updated) {
+        if (_logbuf_updated) {
             panel->scroll.y = panel->content_size.y;
-            logbuf_updated = 0;
+            _logbuf_updated = 0;
         }
 
         /* input textbox + submit button */
@@ -178,17 +173,17 @@ static void test_window(mu_Context *ctx)
             mu_layout_begin_column(ctx);
             mu_layout_row(ctx, 2, (int[]) {46, -1}, 0);
             mu_label(ctx, "Red:");
-            mu_slider(ctx, &bg[0], 0, 255);
+            mu_slider(ctx, &_bg[0], 0, 255);
             mu_label(ctx, "Green:");
-            mu_slider(ctx, &bg[1], 0, 255);
+            mu_slider(ctx, &_bg[1], 0, 255);
             mu_label(ctx, "Blue:");
-            mu_slider(ctx, &bg[2], 0, 255);
+            mu_slider(ctx, &_bg[2], 0, 255);
             mu_layout_end_column(ctx);
             /* color preview */
             mu_Rect r = mu_layout_next(ctx);
-            mu_draw_rect(ctx, r, mu_color(bg[0], bg[1], bg[2], 255));
+            mu_draw_rect(ctx, r, mu_color(_bg[0], _bg[1], _bg[2], 255));
             char buf[32];
-            sprintf(buf, "#%02X%02X%02X", (int) bg[0], (int) bg[1], (int) bg[2]);
+            sprintf(buf, "#%02X%02X%02X", (int) _bg[0], (int) _bg[1], (int) _bg[2]);
             mu_draw_control_text(ctx, buf, r, MU_COLOR_TEXT, MU_OPT_ALIGNCENTER);
         }
 
@@ -245,14 +240,6 @@ static void style_window(mu_Context *ctx)
     }
 }
 
-static void draw_cursor()
-{
-    r_draw_icon(
-        MU_ICON_CLOSE,
-        (mu_Rect) {.x = mouse_pos_x, .y = mouse_pos_y},
-        (mu_Color) {.a = 255, .r = 0, .g = 0, .b = 0});
-}
-
 static void process_frame(mu_Context *ctx)
 {
     mu_begin(ctx);
@@ -275,100 +262,18 @@ static int text_height(mu_Font font)
     return r_get_text_height();
 }
 
-static void mouse_handler(mouse_event_t event)
-{
-    int delta_x = event.x_sign ? (event.x_movement | 0xFFFFFF00) : event.x_movement;
-    int delta_y = event.y_sign ? (event.y_movement | 0xFFFFFF00) : event.y_movement;
-    int new_mouse_x = mouse_pos_x + delta_x;
-    int new_mouse_y = mouse_pos_y - delta_y;
-    if (new_mouse_x >= 0 && (size_t) new_mouse_x < fb.width)
-        mouse_pos_x = new_mouse_x;
-    if (new_mouse_y >= 0 && (size_t) new_mouse_y < fb.height)
-        mouse_pos_y = new_mouse_y;
-
-    mu_input_mousemove(&ctx, mouse_pos_x, mouse_pos_y);
-
-    if (event.right_button != mouse_right_click) {
-        if (event.right_button)
-            mu_input_mousedown(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_RIGHT);
-        else
-            mu_input_mouseup(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_RIGHT);
-    }
-    if (event.left_button != mouse_left_click) {
-        if (event.left_button)
-            mu_input_mousedown(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_LEFT);
-        else
-            mu_input_mouseup(&ctx, mouse_pos_x, mouse_pos_y, MU_MOUSE_LEFT);
-    }
-    mouse_right_click = event.right_button;
-    mouse_left_click = event.left_button;
-}
-
-static const char key_map[256] = {
-    [KEY_LSHIFT] = MU_KEY_SHIFT,
-    [KEY_RSHIFT] = MU_KEY_SHIFT,
-    [KEY_CTRL] = MU_KEY_CTRL,
-    [KEY_ALT] = MU_KEY_ALT,
-    [KEY_RETURN] = MU_KEY_RETURN,
-    [KEY_BACKSPACE] = MU_KEY_BACKSPACE,
-};
-
-static const char char_map[256] = {0x0, 0x0, '1', '2',  '3',  '4', '5',  '6',  '7', '8', '9',
-                                   '0', '-', '=', '\b', '\t', 'q', 'w',  'e',  'r', 't', 'y',
-                                   'u', 'i', 'o', 'p',  '[',  ']', '\n', 0x0,  'a', 's', 'd',
-                                   'f', 'g', 'h', 'j',  'k',  'l', ';',  '\'', '`', 0x0, '\\',
-                                   'z', 'x', 'c', 'v',  'b',  'n', 'm',  ',',  '.', '/', 0x0,
-                                   '*', 0x0, ' ', 0x0,  0x0,  0x0, 0x0,  0x0,  0x0, 0x0, 0x0,
-                                   0x0, 0x0, 0x0, 0x0,  0x0,  '7', '8',  '9',  '-', '4', '5',
-                                   '6', '+', '1', '2',  '3',  '0', '.',  0x0,  0x0, 0x0};
-static const char char_map_shifted[256] = {0x0, 0x0, '!', '@',  '#',  '$', '%',  '^', '&', '*', '(',
-                                           ')', '_', '+', '\b', '\t', 'Q', 'W',  'E', 'R', 'T', 'Y',
-                                           'U', 'I', 'O', 'P',  '{',  '}', '\n', 0x0, 'A', 'S', 'D',
-                                           'F', 'G', 'H', 'J',  'K',  'L', ':',  '"', '~', 0x0, '|',
-                                           'Z', 'X', 'C', 'V',  'B',  'N', 'M',  '<', '>', '?', 0x0,
-                                           '*', 0x0, ' ', 0x0,  0x0,  0x0, 0x0,  0x0, 0x0, 0x0, 0x0,
-                                           0x0, 0x0, 0x0, 0x0,  0x0,  0x0, 0x0,  0x0, '-', 0x0, 0x0,
-                                           0x0, '+', 0x0, 0x0,  0x0,  0x0, 0x0,  0x0, 0x0, 0x0};
-
-static bool is_shifted = false;
-static bool is_capslock = false;
-static void keyboard_handler(keyboard_event_t event)
-{
-    void (*key_action)(mu_Context *ctx, int key) = event.action == KEYBOARD_PRESSED
-                                                           || event.action == KEYBOARD_HOLD
-                                                       ? mu_input_keydown
-                                                       : mu_input_keyup;
-    if (event.scancode == KEY_LSHIFT || event.scancode == KEY_RSHIFT)
-        is_shifted = event.action == KEYBOARD_PRESSED || event.action == KEYBOARD_HOLD;
-    if (event.action == KEYBOARD_PRESSED && event.scancode == KEY_CAPSLOCK)
-        is_capslock = !is_capslock;
-
-    if (key_map[event.scancode])
-        key_action(&ctx, key_map[event.scancode]);
-    else if (
-        char_map[event.scancode]
-        && (event.action == KEYBOARD_PRESSED || event.action == KEYBOARD_HOLD)) {
-        char text[2]
-            = {is_shifted || is_capslock ? char_map_shifted[event.scancode]
-                                         : char_map[event.scancode],
-               '\0'};
-        mu_input_text(&ctx, text);
-    }
-}
-
 int main()
 {
     int result;
     __asm__ volatile("int $0x80" : "=a"(result) : "a"(0x01), "D"(&fb) : "memory");
     for (size_t i = 0; i < (fb.height * fb.width); i++)
         framebuffer[i] = 0xff000000;
-    register_mouse_event_handler(mouse_handler);
-    register_keyboard_event_handler(keyboard_handler);
 
     r_init();
 
     /* init microui */
     mu_init(&ctx);
+    init_input();
     ctx.text_width = text_width;
     ctx.text_height = text_height;
 
@@ -378,7 +283,7 @@ int main()
         process_frame(&ctx);
 
         /* render */
-        r_clear(mu_color(bg[0], bg[1], bg[2], 255));
+        r_clear(mu_color(_bg[0], _bg[1], _bg[2], 255));
         mu_Command *cmd = NULL;
         while (mu_next_command(&ctx, &cmd)) {
             switch (cmd->type) {
