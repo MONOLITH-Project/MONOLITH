@@ -144,7 +144,7 @@ $(ISO_FILE): $(KERNEL_BIN) $(INITRD_TAR)
 
 # Run in QEMU
 run: all
-	qemu-system-x86_64 -cdrom $(ISO_FILE) -serial stdio
+	qemu-system-x86_64 -cdrom $(ISO_FILE) -serial stdio -enable-kvm
 
 run-headless: all
 	qemu-system-x86_64 -cdrom $(ISO_FILE) -nographic

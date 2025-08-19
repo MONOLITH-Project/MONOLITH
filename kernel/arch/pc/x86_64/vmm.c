@@ -112,6 +112,36 @@ static void _vminfo_command(int, char **)
     kprintf("[*] Total mapped memory: %d MB\n", total_mapped_memory_mb);
 }
 
+static inline void _asm_write_msr(uint32_t msr, uint64_t value)
+{
+    uint32_t low = (uint32_t) value;
+    uint32_t high = (uint32_t) (value >> 32);
+    __asm__ volatile("wrmsr" : : "a"(low), "d"(high), "c"(msr));
+}
+
+static inline void _asm_cpuid(uint32_t eax, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d)
+{
+    __asm__ volatile("cpuid" : "=a"(*a), "=b"(*b), "=c"(*c), "=d"(*d) : "a"(eax));
+}
+
+static void _set_pat(void)
+{
+    uint32_t eax, ebx, ecx, edx;
+    _asm_cpuid(1, &eax, &ebx, &ecx, &edx);
+    if (!(edx & (1 << 16))) {
+        debug_log("[-] PAT not supported. WC mappings may not work.\n");
+        return;
+    }
+
+    /*
+     * Configure PAT entries:
+     * PAT0: WB (0x06), PAT1: WT (0x04), PAT2: UC- (0x07), PAT3: UC (0x00)
+     * PAT4: WC (0x01), PAT5: WP (0x05), PAT6: UC- (0x07), PAT7: UC (0x00)
+     */
+    uint64_t pat_value = 0x0007050100070406;
+    _asm_write_msr(0x277, pat_value);
+}
+
 void vmm_init(struct limine_memmap_response *memmap_response)
 {
     debug_log("[*] Initializing VMM...\n");
@@ -162,6 +192,7 @@ void vmm_init(struct limine_memmap_response *memmap_response)
     vmm_map_range(rodata_start_vaddr, rodata_start_paddr, rodata_size, 0x03, false);
     vmm_map_range(data_start_vaddr, data_start_paddr, data_size, 0x03, false);
 
+    _set_pat();
     asm_write_cr3((uintptr_t) vmm_get_lhdm_addr(_pt_top_level));
 
     debug_log_fmt("[*] The page table is located at 0x%x\n", _pt_top_level);
@@ -224,9 +255,10 @@ void vmm_map_range(uintptr_t virt_addr, uintptr_t phys_addr, size_t size, size_t
         virt_addr,
         virt_addr + size);
     size_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE; /* Round up */
-    for (size_t i = 0; i < num_pages; i++) {
-        vmm_map(virt_addr + i * PAGE_SIZE, phys_addr + i * PAGE_SIZE, flags, flush);
-    }
+    for (size_t i = 0; i < num_pages; i++)
+        vmm_map(virt_addr + i * PAGE_SIZE, phys_addr + i * PAGE_SIZE, flags, false);
+    if (flush)
+        asm_write_cr3(asm_read_cr3());
 }
 
 void vmm_unmap(uintptr_t virt, bool flush)

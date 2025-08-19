@@ -10,6 +10,8 @@
 #include <kernel/fs/initrdfs.h>
 #include <kernel/fs/tmpfs.h>
 #include <kernel/fs/vfs.h>
+#include <kernel/input/ps2_keyboard.h>
+#include <kernel/input/ps2_mouse.h>
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
@@ -60,6 +62,9 @@ void kmain()
     syscalls_init();
     initrd_load_modules(limine_module_request.response);
     tmpfs_new_drive();
+
+    ps2_init_keyboard();
+    ps2_mouse_init();
 
     stop_debug_console();
     term_init(framebuffer_request.response);

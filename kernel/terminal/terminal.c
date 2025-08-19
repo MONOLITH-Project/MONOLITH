@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include "kernel/debug.h"
 #include <kernel/input/ps2_keyboard.h>
 #include <kernel/memory/heap.h>
 #include <kernel/memory/memstat.h>
@@ -17,6 +18,12 @@ static char _buffer[TERM_BUFFER_SIZE];
 bool _term_initialized = false;
 
 extern struct flanterm_context *_fb_ctx;
+
+static bool _is_capslock_on = false;
+static bool _is_lshift_pressed = false;
+static bool _is_rshift_pressed = false;
+static bool _waiting_for_key = false;
+static keyboard_event_t _last_event;
 
 void kputc(char c)
 {
@@ -138,26 +145,55 @@ void kprintf(const char *fmt, ...)
     va_end(args);
 }
 
-static char _read_keyboard()
+static void _keyboard_event_handler(keyboard_event_t event)
 {
-    ps2_event_t event = ps2_wait_for_event();
-    ps2_action_t action = ps2_get_event_action(event);
-
-    char c = ps2_is_capslock_on() || ps2_is_key_down(KEY_RSHIFT) || ps2_is_key_down(KEY_LSHIFT)
-                 ? keyboard_layouts[KB_LAYOUT_US].shifted_keymap[event.scancode]
-                 : keyboard_layouts[KB_LAYOUT_US].keymap[event.scancode];
-    if (action == KEYBOARD_HOLD) {
-        return c;
+    switch (event.scancode) {
+    case KEY_LSHIFT:
+        _is_lshift_pressed = (event.action == KEYBOARD_PRESSED);
+        break;
+    case KEY_RSHIFT:
+        _is_rshift_pressed = (event.action == KEYBOARD_PRESSED);
+        break;
+    case KEY_CAPSLOCK:
+        if (event.action == KEYBOARD_PRESSED) {
+            _is_capslock_on = !_is_capslock_on;
+        }
+        break;
+    default:
+        if (event.action == KEYBOARD_PRESSED || event.action == KEYBOARD_HOLD) {
+            _last_event = event;
+            _waiting_for_key = false;
+        }
+        break;
     }
-    return 0x00;
 }
 
 char kgetc()
 {
     kflush();
-    char c;
-    while ((c = _read_keyboard()) == 0x00)
-        ;
+    _waiting_for_key = true;
+    while (_waiting_for_key)
+        __asm__("hlt");
+
+    const keyboard_layout_t *layout = &keyboard_layouts[KB_LAYOUT_US];
+    uint8_t scancode = (uint8_t) _last_event.scancode;
+
+    bool shift_active = _is_lshift_pressed || _is_rshift_pressed;
+    const char *keymap = shift_active ? layout->shifted_keymap : layout->keymap;
+
+    char c = 0;
+    if (scancode < sizeof(layout->keymap))
+        c = keymap[scancode];
+
+    /* Handle CapsLock transformation */
+    if (c >= 'a' && c <= 'z') {
+        if (_is_capslock_on)
+            c -= 32;
+    } else if (c >= 'A' && c <= 'Z') {
+        if (_is_capslock_on)
+            c += 32;
+    }
+
     return c;
 }
 
@@ -204,9 +240,10 @@ void term_init(struct limine_framebuffer_response *response)
         0);
     _index = 0;
 
-    ps2_init_keyboard();
+    ps2_keyboard_register_event_handler(_keyboard_event_handler);
+    _term_initialized = true;
+
     kshell_init();
     memstat_init_cmds();
-    _term_initialized = true;
     kshell_launch();
 }
