@@ -5,13 +5,14 @@
 
 #pragma once
 
+#include <kernel/fs/vfs.h>
 #include <libs/limine/limine.h>
 
 /*
  * Mount a new initrd drive.
  * Returns the drive ID when successful, or -1 on error.
  */
-int initrd_new_drive(void *data);
+vfs_drive_t *initrd_new_drive(const char *name, void *data);
 
 /*
  * Mount all available initrd drives from limine modules.

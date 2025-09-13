@@ -14,26 +14,53 @@
 static uint8_t _drives_count = 0;
 static vfs_drive_t *_drives_map[MAX_DRIVE_COUNT] = {0};
 
-int vfs_new_drive(vfs_drive_t *drive)
+vfs_drive_t *vfs_new_drive(const char *name)
 {
     if (_drives_count >= MAX_DRIVE_COUNT)
-        return -1;
+        return NULL;
+
+    /* Check if drive name already exists */
+    for (int i = 0; i < MAX_DRIVE_COUNT; i++) {
+        if (_drives_map[i] != NULL && strcmp(_drives_map[i]->name, name) == 0)
+            return NULL;
+    }
+
     uint8_t index;
     for (index = 0; index < MAX_DRIVE_COUNT; index++) {
         if (_drives_map[index] == NULL)
             break;
     }
+    vfs_drive_t *drive = kmalloc(sizeof(vfs_drive_t));
+    if (!drive)
+        return NULL;
     drive->id = index;
+    strncpy(drive->name, name, sizeof(drive->name) - 1);
     _drives_map[index] = drive;
     _drives_count++;
-    return index;
+    return drive;
 }
 
-static vfs_drive_t *_vfs_get_drive(uint8_t id)
+void vfs_remove_drive(vfs_drive_t *drive)
 {
-    if (id >= _drives_count || _drives_map[id] == NULL)
-        return NULL;
-    return _drives_map[id];
+    _drives_map[drive->id] = NULL;
+    _drives_count--;
+    kfree(drive);
+}
+
+static vfs_drive_t *_vfs_get_drive_by_name(const char *name)
+{
+    for (int i = 0; i < MAX_DRIVE_COUNT; i++) {
+        if (_drives_map[i] != NULL && strcmp(_drives_map[i]->name, name) == 0)
+            return _drives_map[i];
+    }
+    return NULL;
+}
+
+void vfs_remove_drive_by_name(const char *name)
+{
+    vfs_drive_t *drive = _vfs_get_drive_by_name(name);
+    if (drive)
+        vfs_remove_drive(drive);
 }
 
 void vfs_add_child(vfs_node_t *parent, vfs_node_t *child)
@@ -141,23 +168,25 @@ static int _get_path(const char *full_path, vfs_drive_t **drive, char *path, siz
         return -1;
 
     /* Check if this is a full path */
-    size_t i = 0;
-    while (full_path[i] >= '0' && full_path[i] <= '9')
-        i++;
-
-    if (i == 0 || full_path[i] != ':' || full_path[i + 1] != '/')
+    const char *colon_pos = strchr(full_path, ':');
+    if (colon_pos == NULL || colon_pos == full_path || *(colon_pos + 1) != '/')
         return -1; // Only full paths are supported
 
-    /* Extract drive number from the path */
-    char drive_num[i + 1];
-    strncpy(drive_num, full_path, i);
-    drive_num[i] = '\0';
-    *drive = _vfs_get_drive((uint8_t) atoi(drive_num));
+    /* Extract drive name from the path */
+    size_t name_len = colon_pos - full_path;
+    if (name_len >= sizeof((*drive)->name))
+        return -1;
+
+    char drive_name[sizeof((*drive)->name)];
+    strncpy(drive_name, full_path, name_len);
+    drive_name[name_len] = '\0';
+
+    *drive = _vfs_get_drive_by_name(drive_name);
     if (*drive == NULL)
         return -1;
 
-    /* Skip drive number part (X:/) */
-    full_path += i + 2;
+    /* Skip drive name part (name:/) */
+    full_path = colon_pos + 2;
 
     char temp[buffer_size];
     size_t pos = 0;
@@ -247,7 +276,7 @@ int file_remove(const char *full_path)
 
 int file_read(file_t *file, void *buffer, uint32_t size)
 {
-    return ( file->drive)->read(file, buffer, size);
+    return (file->drive)->read(file, buffer, size);
 }
 
 int file_write(file_t *file, const void *buffer, uint32_t size)
