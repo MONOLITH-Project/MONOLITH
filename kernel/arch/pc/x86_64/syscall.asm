@@ -44,6 +44,16 @@ extern sys_hello
 extern sys_request_fb
 extern sys_register_mouse_handler
 extern sys_register_keyboard_handler
+extern sys_file_open
+extern sys_file_close
+extern sys_file_create
+extern sys_file_remove
+extern sys_file_read
+extern sys_file_write
+extern sys_file_seek
+extern sys_file_getdents
+extern sys_file_getstats
+extern sys_file_tell
 
 section .rodata
 syscall_table:
@@ -51,6 +61,16 @@ syscall_table:
     dq sys_request_fb
     dq sys_register_mouse_handler
     dq sys_register_keyboard_handler
+    dq sys_file_open
+    dq sys_file_close
+    dq sys_file_create
+    dq sys_file_remove
+    dq sys_file_read
+    dq sys_file_write
+    dq sys_file_seek
+    dq sys_file_getdents
+    dq sys_file_getstats
+    dq sys_file_tell
 syscall_table_end:
 
 section .text
