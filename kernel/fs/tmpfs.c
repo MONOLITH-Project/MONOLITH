@@ -257,32 +257,29 @@ static size_t _tmpfs_tell(file_t *file)
     return file->offset;
 }
 
-int tmpfs_new_drive()
+vfs_drive_t *tmpfs_new_drive(const char *name)
 {
-    vfs_drive_t *new_drive = kmalloc(sizeof(vfs_drive_t));
-    if (new_drive == NULL)
-        return -1;
+    vfs_drive_t *drive = vfs_new_drive(name);
+    if (drive == NULL)
+        return NULL;
 
-    new_drive->internal = _new_tmpfs_node(DIRECTORY);
-    if (!new_drive->internal)
+    drive->internal = _new_tmpfs_node(DIRECTORY);
+    if (!drive->internal)
         goto failure;
 
-    if (vfs_new_drive(new_drive) < 0)
-        goto failure;
+    drive->create = _tmpfs_create;
+    drive->remove = _tmpfs_remove;
+    drive->open = _tmpfs_open;
+    drive->write = _tmpfs_write;
+    drive->read = _tmpfs_read;
+    drive->seek = _tmpfs_seek;
+    drive->tell = _tmpfs_tell;
+    drive->getdents = _tmpfs_getdents;
+    drive->getstats = _tmpfs_getstats;
 
-    new_drive->create = _tmpfs_create;
-    new_drive->remove = _tmpfs_remove;
-    new_drive->open = _tmpfs_open;
-    new_drive->write = _tmpfs_write;
-    new_drive->read = _tmpfs_read;
-    new_drive->seek = _tmpfs_seek;
-    new_drive->tell = _tmpfs_tell;
-    new_drive->getdents = _tmpfs_getdents;
-    new_drive->getstats = _tmpfs_getstats;
-
-    return new_drive->id;
+    return drive;
 
 failure:
-    kfree(new_drive);
-    return -1;
+    vfs_remove_drive(drive);
+    return NULL;
 }

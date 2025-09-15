@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include "kernel/memory/heap.h"
 #include <kernel/arch/pc/idt.h>
 #include <kernel/debug.h>
+#include <kernel/fs/vfs.h>
 #include <kernel/input/ps2_keyboard.h>
 #include <kernel/input/ps2_mouse.h>
 #include <kernel/klibc/memory.h>
@@ -66,4 +68,64 @@ int sys_register_keyboard_handler(keyboard_event_handler_t handler)
 {
     ps2_keyboard_register_event_handler(handler);
     return 0;
+}
+
+void *sys_file_open(const char *path)
+{
+    file_t *file = kmalloc(sizeof(file_t));
+    if (!file) {
+        return NULL;
+    }
+    *file = file_open(path);
+    return file;
+}
+
+void sys_file_close(void *file)
+{
+    kfree((file_t *) file);
+}
+
+int sys_file_create(const char *path, file_type_t type)
+{
+    return file_create(path, type);
+}
+
+int sys_file_remove(const char *path)
+{
+    return file_remove(path);
+}
+
+int sys_file_read(file_t *file, void *buffer, uint32_t size)
+{
+    return file_read(file, buffer, size);
+}
+
+int sys_file_write(file_t *file, const void *buffer, uint32_t size)
+{
+    return file_write(file, buffer, size);
+}
+
+int sys_file_seek(file_t *file, size_t offset, seek_mode_t mode)
+{
+    return file_seek(file, offset, mode);
+}
+
+int sys_file_getdents(file_t *file, void *buffer, uint32_t size)
+{
+    return file_getdents(file, buffer, size);
+}
+
+int sys_file_getstats(file_t *file, file_stats_t *stats)
+{
+    return file_getstats(file, stats);
+}
+
+size_t sys_file_tell(file_t *file)
+{
+    return file_tell(file);
+}
+
+int sys_getdrives(void *buffer, uint32_t size)
+{
+    return vfs_getdrives(buffer, size);
 }

@@ -61,7 +61,7 @@ void kmain()
     timer_init();
     syscalls_init();
     initrd_load_modules(limine_module_request.response);
-    tmpfs_new_drive();
+    tmpfs_new_drive("tmpfs");
 
     ps2_init_keyboard();
     ps2_mouse_init();

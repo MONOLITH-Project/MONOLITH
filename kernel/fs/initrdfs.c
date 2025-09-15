@@ -293,11 +293,11 @@ static int _initrd_getstats(file_t *file, file_stats_t *stats)
     return 0;
 }
 
-int initrd_new_drive(void *data)
+vfs_drive_t *initrd_new_drive(const char *prefix, void *data)
 {
-    vfs_drive_t *new_drive = kmalloc(sizeof(vfs_drive_t));
+    vfs_drive_t *new_drive = vfs_new_drive(prefix);
     if (new_drive == NULL)
-        return -1;
+        return NULL;
 
     new_drive->internal = data;
     new_drive->open = _initrd_open;
@@ -309,14 +309,7 @@ int initrd_new_drive(void *data)
     new_drive->getdents = _initrd_getdents;
     new_drive->getstats = _initrd_getstats;
 
-    if (vfs_new_drive(new_drive) < 0)
-        goto failure;
-
-    return new_drive->id;
-
-failure:
-    kfree(new_drive);
-    return -1;
+    return new_drive;
 }
 
 void initrd_load_modules(struct limine_module_response *response)
@@ -324,7 +317,7 @@ void initrd_load_modules(struct limine_module_response *response)
     debug_log("[*] Loading kernel modules...\n");
     for (uint64_t i = 0; i < response->module_count; i++) {
         struct limine_file *module = response->modules[i];
-        if (initrd_new_drive(module->address) < 0) {
+        if (initrd_new_drive("system", module->address) == NULL) {
             debug_log_fmt("[-] Failed to load %s\n", module->path);
         } else {
             debug_log_fmt("[+] Loaded \"%s\"...\n", module->path);

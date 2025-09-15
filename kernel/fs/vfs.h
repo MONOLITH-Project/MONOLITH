@@ -69,7 +69,8 @@ typedef struct
  */
 typedef struct vfs_drive
 {
-    uint8_t id;     /* Drive identifier (0-255) */
+    uint8_t id;     /* Drive index (0-255) */
+    char name[40];  /* Drive name */
     void *internal; /* Internal drive data */
     file_t (*open)(struct vfs_drive *drive, const char *path);
     int (*create)(struct vfs_drive *drive, const char *name, file_type_t type);
@@ -84,9 +85,19 @@ typedef struct vfs_drive
 
 /*
  * Create a new drive.
- * Returns the index of the new drive, or -1 on failure.
+ * Returns a pointer to the new drive, or NULL on failure.
  */
-int vfs_new_drive(vfs_drive_t *);
+vfs_drive_t *vfs_new_drive(const char *prefix);
+
+/*
+ * Remove a drive by the drive pointer.
+ */
+void vfs_remove_drive(vfs_drive_t *drive);
+
+/*
+ * Remove a drive by the drive name.
+ */
+void vfs_remove_drive_by_name(const char *name);
 
 /*
  * Add a child node to a parent node.
@@ -155,3 +166,9 @@ int file_getstats(file_t *file, file_stats_t *stats);
  * Returns the current position, or -1 on failure.
  */
 size_t file_tell(file_t *file);
+
+/*
+ * Lists available drives.
+ * Returns the number of bytes written to buffer, or -1 on failure.
+ */
+int vfs_getdrives(void *buffer, uint32_t size);
