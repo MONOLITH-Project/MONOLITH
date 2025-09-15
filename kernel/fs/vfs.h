@@ -87,7 +87,7 @@ typedef struct vfs_drive
  * Create a new drive.
  * Returns a pointer to the new drive, or NULL on failure.
  */
-vfs_drive_t *vfs_new_drive(const char *);
+vfs_drive_t *vfs_new_drive(const char *prefix);
 
 /*
  * Remove a drive by the drive pointer.

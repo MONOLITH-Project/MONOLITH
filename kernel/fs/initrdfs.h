@@ -12,7 +12,7 @@
  * Mount a new initrd drive.
  * Returns the drive ID when successful, or -1 on error.
  */
-vfs_drive_t *initrd_new_drive(const char *name, void *data);
+vfs_drive_t *initrd_new_drive(const char *prefix, void *data);
 
 /*
  * Mount all available initrd drives from limine modules.

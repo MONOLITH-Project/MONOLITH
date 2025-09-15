@@ -293,9 +293,9 @@ static int _initrd_getstats(file_t *file, file_stats_t *stats)
     return 0;
 }
 
-vfs_drive_t *initrd_new_drive(const char *name, void *data)
+vfs_drive_t *initrd_new_drive(const char *prefix, void *data)
 {
-    vfs_drive_t *new_drive = vfs_new_drive(name);
+    vfs_drive_t *new_drive = vfs_new_drive(prefix);
     if (new_drive == NULL)
         return NULL;
 

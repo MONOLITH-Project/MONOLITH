@@ -11,4 +11,4 @@
  * Mount a new tmpfs drive.
  * Returns the drive pointer when successful, or NULL on error.
  */
-vfs_drive_t *tmpfs_new_drive(const char *name);
+vfs_drive_t *tmpfs_new_drive(const char *prefix);
