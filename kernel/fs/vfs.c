@@ -303,3 +303,30 @@ size_t file_tell(file_t *file)
 {
     return file->drive->tell(file);
 }
+
+int vfs_getdrives(void *buffer, uint32_t size)
+{
+    char *buf = (char *) buffer;
+    uint32_t offset = 0;
+
+    for (int i = 0; i < MAX_DRIVE_COUNT; i++) {
+        vfs_drive_t *drive = _drives_map[i];
+        if (drive == NULL)
+            continue;
+
+        size_t name_len = strlen(drive->name);
+        uint32_t entry_len = sizeof(dir_entry_t) + name_len + 1;
+
+        if (offset + entry_len > size)
+            break;
+
+        dir_entry_t *entry = (dir_entry_t *) (buf + offset);
+        entry->length = entry_len;
+        entry->type = DIRECTORY;
+        memcpy(entry->name, drive->name, name_len + 1);
+
+        offset += entry_len;
+    }
+
+    return offset;
+}

@@ -347,6 +347,25 @@ static void _exec(int argc, char *argv[])
         kprintf("\n[-] Cannot load ELF file \"%s\"!", argv[1]);
 }
 
+static void _drives(int argc, char **)
+{
+    if (argc != 1) {
+        kputs("\n[-] Usage: drives");
+        return;
+    }
+    char buffer[1024];
+    int count = vfs_getdrives(buffer, sizeof(buffer));
+    if (count < 0) {
+        kputs("\n[-] Failed to get drives");
+        return;
+    }
+    for (int pos = 0; pos < count;) {
+        dir_entry_t *entry = (dir_entry_t *) (buffer + pos);
+        kprintf("\n%s:/", entry->name);
+        pos += entry->length;
+    }
+}
+
 void kshell_register_command(const char *name, const char *desc, kshell_command_t cmd)
 {
     _registered_commands[_registered_commands_count++] = (kshell_command_desc_t) {
@@ -369,6 +388,7 @@ void kshell_init()
     kshell_register_command("cat", "Print the content of the specified file", _cat);
     kshell_register_command("rm", "Remove a specified file", _rm);
     kshell_register_command("exec", "Execute a program", _exec);
+    kshell_register_command("drives", "List available drives", _drives);
 }
 
 void kshell_launch()

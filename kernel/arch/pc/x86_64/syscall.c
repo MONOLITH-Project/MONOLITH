@@ -124,3 +124,8 @@ size_t sys_file_tell(file_t *file)
 {
     return file_tell(file);
 }
+
+int sys_getdrives(void *buffer, uint32_t size)
+{
+    return vfs_getdrives(buffer, size);
+}

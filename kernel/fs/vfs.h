@@ -166,3 +166,9 @@ int file_getstats(file_t *file, file_stats_t *stats);
  * Returns the current position, or -1 on failure.
  */
 size_t file_tell(file_t *file);
+
+/*
+ * Lists available drives.
+ * Returns the number of bytes written to buffer, or -1 on failure.
+ */
+int vfs_getdrives(void *buffer, uint32_t size);
