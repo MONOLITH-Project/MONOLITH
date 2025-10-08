@@ -16,9 +16,10 @@
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
 #include <kernel/serial.h>
-#include <kernel/syscall/syscall.h>
 #include <kernel/terminal/terminal.h>
 #include <kernel/timer.h>
+#include <kernel/usermode/syscall.h>
+#include <kernel/usermode/task.h>
 #include <libs/flanterm/src/flanterm_backends/fb.h>
 #include <libs/limine/limine.h>
 
@@ -60,6 +61,7 @@ void kmain()
     heap_init(10);
     timer_init();
     syscalls_init();
+    task_switching_init();
     initrd_load_modules(limine_module_request.response);
     tmpfs_new_drive("tmpfs");
 

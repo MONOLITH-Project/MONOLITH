@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <kernel/usermode/task.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -29,3 +30,4 @@ typedef void (*ps2_mouse_event_handler_t)(mouse_event_t);
 
 void ps2_mouse_init();
 int ps2_mouse_register_event_handler(ps2_mouse_event_handler_t handler);
+void ps2_mouse_unregister_handlers_for_task(task_t *task);

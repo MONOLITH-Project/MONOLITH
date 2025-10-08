@@ -4,6 +4,7 @@
 ;
 
 global jump_usermode
+global jump_kernelmode
 section .text
 
 ; Jump to usermode
@@ -19,3 +20,17 @@ jump_usermode:
     push rdi       ; Entry point (RIP)
 
     iretq          ; Transition to user mode
+
+; Jump to kernelmode
+; void jump_kernelmode(uintptr_t rip, uintptr_t rsp);
+; rdi = rip
+; rsi = rsp
+jump_kernelmode:
+
+    push 0x10      ; Kernel data segment (SS)
+    push rsi       ; Kernel stack top (RSP)
+    push 0x202     ; RFLAGS (interrupts enabled)
+    push 0x08      ; Kernel code segment (CS)
+    push rdi       ; Entry point (RIP)
+
+    iretq          ; Transition to kernel mode

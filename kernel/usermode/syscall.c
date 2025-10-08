@@ -3,26 +3,20 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include "kernel/memory/heap.h"
+#include <kernel/usermode/task.h>
+#include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/debug.h>
 #include <kernel/fs/vfs.h>
 #include <kernel/input/ps2_keyboard.h>
 #include <kernel/input/ps2_mouse.h>
 #include <kernel/klibc/memory.h>
+#include <kernel/memory/heap.h>
 #include <kernel/memory/vmm.h>
-#include <kernel/syscall/syscall.h>
+#include <kernel/terminal/kshell.h>
 #include <kernel/terminal/terminal.h>
+#include <kernel/usermode/syscall.h>
 #include <stdint.h>
-
-#define GDT_KERNEL_CODE 1
-#define GDT_KERNEL_DATA 2
-#define GDT_USER_DATA 3
-#define GDT_USER_CODE 4
-#define GDT_RING_3 3
-#define STAR_KCODE_OFFSET 32
-#define STAR_UCODE_OFFSET 48
-#define EFER_ENABLE_SYSCALL 1
 
 extern void _syscall_handler();
 
@@ -33,8 +27,8 @@ void syscalls_init()
 
 void sys_hello()
 {
-    kprintf("\nSyscalls are working!\n");
-    debug_log_fmt("Syscalls are working!\n");
+    kprintf("\nSyscalls are working!");
+    debug_log_fmt("[*] Syscalls are working!\n");
 }
 
 extern struct limine_framebuffer_request framebuffer_request;
@@ -128,4 +122,24 @@ size_t sys_file_tell(file_t *file)
 int sys_getdrives(void *buffer, uint32_t size)
 {
     return vfs_getdrives(buffer, size);
+}
+
+int sys_exit()
+{
+    task_t *current = task_get_current();
+    if (!current)
+        return -1;
+
+    task_t *next = task_next(current);
+    task_mark_exiting(current);
+
+    if (!next || next == current)
+        next = task_next(NULL);
+
+    if (!next || next == current)
+        next = task_idle();
+
+    task_switch(next);
+    __builtin_unreachable();
+    return 0;
 }

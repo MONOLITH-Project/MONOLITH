@@ -55,6 +55,7 @@ extern sys_file_getdents
 extern sys_file_getstats
 extern sys_file_tell
 extern sys_getdrives
+extern sys_exit
 
 section .rodata
 syscall_table:
@@ -73,6 +74,7 @@ syscall_table:
     dq sys_file_getstats
     dq sys_file_tell
     dq sys_getdrives
+    dq sys_exit
 syscall_table_end:
 
 section .text

@@ -7,8 +7,6 @@ static inline long syscall0(long num)
 
 int main(int argc, char **argv)
 {
-    syscall0(0);
-    while (1)
-        ;
-    return 0;
+    syscall0(0);        /* Call sys_hello syscall */
+    return syscall0(15); /* Call exit syscall */
 }

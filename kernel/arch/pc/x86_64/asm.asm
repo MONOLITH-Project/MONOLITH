@@ -40,3 +40,8 @@ asm_inb:
     mov dx, di
     in al, dx
     ret
+
+global asm_read_rsp
+asm_read_rsp:
+    mov rax, rsp
+    ret
