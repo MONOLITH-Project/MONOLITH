@@ -65,6 +65,13 @@ static void log_window(mu_Context *ctx)
     }
 }
 
+static inline long syscall0(long num)
+{
+    long ret;
+    __asm__ volatile("int $0x80" : "=a"(ret) : "a"(num) : "rcx", "r11", "memory");
+    return ret;
+}
+
 static void test_window(mu_Context *ctx)
 {
     /* do window */
@@ -185,6 +192,10 @@ static void test_window(mu_Context *ctx)
             char buf[32];
             sprintf(buf, "#%02X%02X%02X", (int) _bg[0], (int) _bg[1], (int) _bg[2]);
             mu_draw_control_text(ctx, buf, r, MU_COLOR_TEXT, MU_OPT_ALIGNCENTER);
+        }
+
+        if (mu_button(ctx, "Exit")) {
+            syscall0(15); /* Call exit syscall */
         }
 
         mu_end_window(ctx);

@@ -282,10 +282,9 @@ void vmm_unmap(uintptr_t virt, bool flush)
         goto failure;
 
     pt->entries[pt_index].raw = 0;
-    if (flush) {
-        debug_log_fmt("[*] Unmapped virtual address 0x%x\n", virt);
+    if (flush)
         asm_invlpg((void *) virt);
-    }
+    return;
 
 failure:
     debug_log_fmt("[-] Failed to unmap virtual address 0x%x\n", virt);

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <kernel/usermode/task.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -86,3 +87,4 @@ typedef void (*keyboard_event_handler_t)(keyboard_event_t);
 
 void ps2_init_keyboard();
 int ps2_keyboard_register_event_handler(keyboard_event_handler_t handler);
+void ps2_keyboard_unregister_handlers_for_task(task_t *task);

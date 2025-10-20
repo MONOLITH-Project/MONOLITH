@@ -17,7 +17,13 @@
 static keyboard_action_t _key_state[256];
 static uint8_t _led_state = 0;
 
-static keyboard_event_handler_t *_event_handlers = NULL;
+typedef struct
+{
+    keyboard_event_handler_t handler;
+    task_t *owner;
+} keyboard_handler_entry_t;
+
+static keyboard_handler_entry_t *_event_handlers = NULL;
 static uint16_t _event_handler_count = 0;
 static uint16_t _event_handler_capacity = 16;
 
@@ -74,8 +80,8 @@ static void _ps2_irq()
             .action = action,
         };
         for (int i = 0; i < _event_handler_capacity; i++) {
-            if (_event_handlers[i] != NULL)
-                _event_handlers[i](event);
+            if (_event_handlers[i].handler != NULL)
+                _event_handlers[i].handler(event);
         }
     }
 }
@@ -85,33 +91,51 @@ void ps2_init_keyboard()
     while (asm_inb(PS2_STATUS_PORT) & 0x01)
         asm_inb(PS2_DATA_PORT);
     irq_register_handler(1, _ps2_irq);
-    _event_handlers = kmalloc(_event_handler_capacity * sizeof(keyboard_event_handler_t));
-    memset(_event_handlers, 0, _event_handler_capacity * sizeof(keyboard_event_handler_t));
+    _event_handlers = kmalloc(_event_handler_capacity * sizeof(keyboard_handler_entry_t));
+    memset(_event_handlers, 0, _event_handler_capacity * sizeof(keyboard_handler_entry_t));
     memset(_key_state, KEYBOARD_RELEASED, sizeof(_key_state));
 }
 
 int ps2_keyboard_register_event_handler(keyboard_event_handler_t handler)
 {
+    task_t *owner = task_get_current();
     if (_event_handler_count + 1 == _event_handler_capacity) {
-        keyboard_event_handler_t *new_ptr = krealloc(
-            _event_handlers, _event_handler_capacity * 2 * sizeof(keyboard_event_handler_t));
+        keyboard_handler_entry_t *new_ptr = krealloc(
+            _event_handlers,
+            _event_handler_capacity * 2 * sizeof(keyboard_handler_entry_t));
         if (new_ptr == NULL)
             return -1;
         memset(
             new_ptr + _event_handler_capacity,
             0,
-            _event_handler_capacity * sizeof(keyboard_event_handler_t));
+            _event_handler_capacity * sizeof(keyboard_handler_entry_t));
         _event_handler_capacity *= 2;
         _event_handlers = new_ptr;
     }
 
     for (int i = 0; i < _event_handler_capacity; i++) {
-        if (_event_handlers[i] == NULL) {
-            _event_handlers[i] = handler;
+        if (_event_handlers[i].handler == NULL) {
+            _event_handlers[i].handler = handler;
+            _event_handlers[i].owner = owner;
             _event_handler_count++;
             return 0;
         }
     }
 
     return -1;
+}
+
+void ps2_keyboard_unregister_handlers_for_task(task_t *task)
+{
+    if (!task || !_event_handlers)
+        return;
+
+    for (int i = 0; i < _event_handler_capacity; i++) {
+        if (_event_handlers[i].handler != NULL && _event_handlers[i].owner == task) {
+            _event_handlers[i].handler = NULL;
+            _event_handlers[i].owner = NULL;
+            if (_event_handler_count > 0)
+                _event_handler_count--;
+        }
+    }
 }

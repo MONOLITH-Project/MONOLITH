@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include <kernel/elfloader/loader.h>
 #include <kernel/fs/vfs.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
@@ -11,6 +10,7 @@
 #include <kernel/memory/pmm.h>
 #include <kernel/terminal/kshell.h>
 #include <kernel/terminal/terminal.h>
+#include <kernel/usermode/loader.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -39,7 +39,7 @@ static void _help(int argc, char *argv[])
 static void _kys(int, char **)
 {
     char *s = (char *) -1;
-    kprintf(s);
+    kputc(*s);
 }
 
 static inline void _parse_command(char *command, int *argc, char **argv)

@@ -5,17 +5,15 @@
 
 #include <kernel/arch/pc/asm.h>
 #include <kernel/debug.h>
-#include <kernel/elfloader/elf.h>
-#include <kernel/elfloader/loader.h>
-#include <kernel/elfloader/usermode.h>
 #include <kernel/fs/vfs.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
+#include <kernel/usermode/elf.h>
+#include <kernel/usermode/loader.h>
+#include <kernel/usermode/task.h>
 #include <stdint.h>
-
-typedef int (*func_t)(int argc, char **argv);
 
 int load_elf(file_t *file)
 {
@@ -40,6 +38,7 @@ int load_elf(file_t *file)
     debug_log_fmt("[*] Found %d program headers\n", header.pht_entry_count);
 
     elf64_psh_t psh;
+    task_t *task = task_create((void *) header.entry_offset, TASK_MODE_USER);
 
     for (int i = 0; i < header.pht_entry_count; i++) {
         if (file_seek(file, header.pht_offset + i * header.pht_entry_size, SEEK_SET) < 0)
@@ -61,7 +60,7 @@ int load_elf(file_t *file)
         }
 
         uint64_t flags = PTFLAG_US | PTFLAG_P | PTFLAG_RW | PTFLAG_XD;
-        vmm_map_range(vaddr_start, (uintptr_t) phys_mem, npages * PAGE_SIZE, flags, false);
+        task_map(task, vaddr_start, (uintptr_t) phys_mem, npages, flags, true);
 
         void *hddm_addr = vmm_get_hhdm_addr(phys_mem);
         memset(hddm_addr, 0, npages * PAGE_SIZE);
@@ -81,24 +80,30 @@ int load_elf(file_t *file)
     }
 
     void *stack = pmm_alloc(10);
-    vmm_map_range(
+    task_map(
+        task,
         0x00007fffe0000000ULL,
         (uintptr_t) stack,
-        10 * PAGE_SIZE,
+        10,
         PTFLAG_US | PTFLAG_RW | PTFLAG_P,
-        false);
+        true);
 
     void *kernelstack = pmm_alloc(10);
-    vmm_map_range(
+    task_map(
+        task,
         -(10LL * PAGE_SIZE),
         (uintptr_t) kernelstack,
-        10 * PAGE_SIZE,
-        PTFLAG_US | PTFLAG_RW | PTFLAG_P,
+        10,
+        PTFLAG_RW | PTFLAG_P,
         false);
 
     asm_write_cr3(asm_read_cr3());
     uintptr_t stack_top = 0x00007fffe0000000ULL + 10 * PAGE_SIZE;
-    jump_usermode((func_t) header.entry_offset, (void *) stack_top);
+    task->state.cr3 = asm_read_cr3();
+    task->state.rsp = stack_top;
+    task->state.rsp0 = 0xFFFFFFFFFFFFF000LL;
+    task_switch(task);
 
+    /* Should not reach here: control transferred to the user task */
     return 0;
 }

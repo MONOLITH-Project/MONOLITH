@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include <kernel/elfloader/elf.h>
+#include <kernel/debug.h>
 #include <kernel/fs/vfs.h>
 #include <kernel/klibc/string.h>
-#include <kernel/debug.h>
+#include <kernel/usermode/elf.h>
 
 int parse_elf_header(file_t *file, void *buffer)
 {
