@@ -4,13 +4,13 @@
  */
 
 #include <kernel/arch/pc/asm.h>
-#include <kernel/mmap.h>
 #include <kernel/arch/pc/x64/paging.h>
 #include <kernel/devices/debug.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
+#include <kernel/mmap.h>
 #include <libs/limine-protocol/include/limine.h>
 
 __attribute__((used, section(".limine_requests"))) volatile struct limine_hhdm_request
@@ -113,15 +113,15 @@ void vmm_init(void)
 
     for (size_t i = 0; i < mmap_entry_count; i++) {
         const mmap_entry_t entry = mmap_entries[i];
-        if (entry.type != MMAP_BAD_MEMORY) {
-            vmm_map_range(
-                kernel_cr3,
-                (uintptr_t) vmm_get_hhdm_addr((void *) entry.base),
-                entry.base,
-                entry.length,
-                0x0000000000000003,
-                false);
-        }
+        if (entry.type == MMAP_BAD_MEMORY || entry.type == MMAP_RESERVED || entry.length == 0)
+            continue;
+        vmm_map_range(
+            kernel_cr3,
+            (uintptr_t) vmm_get_hhdm_addr((void *) entry.base),
+            entry.base,
+            entry.length,
+            0x0000000000000003,
+            false);
     }
 
     uintptr_t kernel_paddr = limine_kernel_address_request.response->physical_base;

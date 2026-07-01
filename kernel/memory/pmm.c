@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
-#include <kernel/mmap.h>
 #include <kernel/devices/debug.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
@@ -14,6 +13,7 @@ static uint8_t *_bitmap_end;
 static void *_phys_memory_start;
 static size_t _bitmap_size;
 static size_t _bitmap_page_count;
+static size_t _next_alloc_byte;
 
 extern char _data_end[];
 
@@ -143,15 +143,10 @@ void pmm_init(void)
     _bitmap_end = _bitmap + _bitmap_size;
     _phys_memory_start = (void *) _align_up((uintptr_t) vmm_get_lhdm_addr(_bitmap_end), PAGE_SIZE);
 
-    debug_log_fmt("Physical memory start: 0x%x\n", (uintptr_t) _phys_memory_start);
-    debug_log_fmt("End of kernel address: 0x%x\n", kernel_end_addr);
-    debug_log_fmt("Bitmap address range: 0x%x-0x%x\n", (uintptr_t) _bitmap, (uintptr_t) _bitmap_end);
-    debug_log_fmt("Bitmap page count: %d pages\n", _bitmap_page_count);
-    debug_log_fmt("Bitmap size: %d bytes\n", _bitmap_size);
-
     debug_log("Initializing the bitmap...\n");
     for (size_t i = 0; i < _bitmap_size; i++)
         _bitmap[i] = 0;
+    _next_alloc_byte = 0;
 
     debug_log("PMM initialized\n");
 }
@@ -162,7 +157,11 @@ void *pmm_alloc(size_t pages)
     size_t start_page = 0;
     void *result = NULL;
 
-    for (size_t byte = 0; byte < _bitmap_size; byte++) {
+    for (size_t scanned = 0; scanned < _bitmap_size; scanned++) {
+        size_t byte = (_next_alloc_byte + scanned) % _bitmap_size;
+        if (scanned > 0 && byte == 0)
+            current_free_pages = 0;
+
         /* Skip fully used bytes */
         if (_bitmap[byte] == 0xFF) {
             current_free_pages = 0;
@@ -171,6 +170,10 @@ void *pmm_alloc(size_t pages)
 
         result = _process_byte(byte, &current_free_pages, &start_page, pages);
         if (result) {
+            size_t next_page = start_page + pages;
+            _next_alloc_byte = next_page / 8;
+            if (_next_alloc_byte >= _bitmap_size)
+                _next_alloc_byte = 0;
             return result;
         }
     }
@@ -202,4 +205,8 @@ void pmm_free(void *ptr, size_t pages)
         size_t bit_idx = i % 8;
         _bitmap[byte_idx] &= ~(1 << bit_idx);
     }
+
+    size_t freed_byte = start_page / 8;
+    if (freed_byte < _next_alloc_byte)
+        _next_alloc_byte = freed_byte;
 }

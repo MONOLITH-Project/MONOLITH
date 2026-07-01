@@ -316,7 +316,8 @@ int main()
     };
     set_default_menubar(&system_menubar);
 
-    bool launched_initial_term = false;
+    _menu_action_terminal();
+
     bool needs_redraw = true;
 
     while (1) {
@@ -327,11 +328,6 @@ int main()
         bool menubar_changed = update_menubar_state(&context);
         bool windows_changed = update_windows_state(&context);
         _terminal_taps_pump();
-        if (!launched_initial_term) {
-            _menu_action_terminal();
-            launched_initial_term = true;
-            client_activity = true;
-        }
 
         needs_redraw = needs_redraw || client_activity || menubar_changed || windows_changed;
 
