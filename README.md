@@ -19,3 +19,4 @@ An experimental non-Unix operating system, designed for simplicity and portabili
 - [IBM Plex Sans](https://fonts.google.com/specimen/IBM+Plex+Sans): An open-source font family from IBM.
 - [Jetbrains Mono](https://www.jetbrains.com/lp/mono/): A monospaced font family from JetBrains.
 - [Wallpaper by Ash](https://unsplash.com/photos/calm-body-of-water-during-horizon-LJOoIrjOSXw): The default desktop wallpaper.
+- [nyancat by klange](https://github.com/klange/nyancat): A nyancat animation for the terminal.

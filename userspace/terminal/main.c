@@ -18,6 +18,8 @@
 #define TERM_FONT_SIZE 20
 #define TERM_CSI_PARAM_COUNT 8
 #define TERM_FONT_PATH "file:/system/assets/JetBrainsMono-Medium.ttf"
+#define TERM_COMMANDS_PER_PUMP 32
+#define TERM_BYTES_PER_PUMP (TERM_MAX_PAYLOAD * 8)
 
 enum {
     SHELL_TIN = TERM_RD_TIN,
@@ -29,6 +31,8 @@ typedef enum {
     TERM_PARSE_NORMAL = 0,
     TERM_PARSE_ESCAPE,
     TERM_PARSE_CSI,
+    TERM_PARSE_OSC,
+    TERM_PARSE_STRING_ESCAPE,
 } terminal_parse_state_t;
 
 typedef struct
@@ -55,6 +59,7 @@ typedef struct
     uint16_t saved_row;
     gfx_color_t fg;
     gfx_color_t bg;
+    bool pending_wrap;
     terminal_parse_state_t parse_state;
     uint16_t csi_params[TERM_CSI_PARAM_COUNT];
     uint8_t csi_param_count;
@@ -86,6 +91,16 @@ static const gfx_color_t TERM_PALETTE[8] = {
     {0xFF, 0x5F, 0xC7, 0xD8},
     {0xFF, 0xD7, 0xDE, 0xE8},
 };
+static const gfx_color_t TERM_BRIGHT_PALETTE[8] = {
+    {0xFF, 0x40, 0x45, 0x4F},
+    {0xFF, 0xFF, 0x6B, 0x6B},
+    {0xFF, 0x74, 0xD6, 0x85},
+    {0xFF, 0xF4, 0xC9, 0x5A},
+    {0xFF, 0x6A, 0xA5, 0xF0},
+    {0xFF, 0xC9, 0x86, 0xF0},
+    {0xFF, 0x70, 0xD8, 0xEA},
+    {0xFF, 0xF1, 0xF5, 0xF9},
+};
 
 static uint16_t _term_clamp_u16(uint16_t value, uint16_t max)
 {
@@ -95,6 +110,11 @@ static uint16_t _term_clamp_u16(uint16_t value, uint16_t max)
 static terminal_cell_t *_term_cell_at(terminal_state_t *term, uint16_t col, uint16_t row)
 {
     return &term->cells[(size_t) row * term->cols + col];
+}
+
+static uint8_t _term_color_component(uint16_t value)
+{
+    return value > 255 ? 255 : (uint8_t) value;
 }
 
 static void _term_record_bytes(terminal_state_t *term, const char *text, size_t len)
@@ -154,6 +174,7 @@ static void _term_reset_screen(terminal_state_t *term)
 {
     term->cursor_col = 0;
     term->cursor_row = 0;
+    term->pending_wrap = false;
     term->saved_col = 0;
     term->saved_row = 0;
     term->fg = TERM_DEFAULT_FG;
@@ -199,24 +220,35 @@ static void _term_put_char(terminal_state_t *term, char ch)
 
     if (ch == '\r') {
         term->cursor_col = 0;
+        term->pending_wrap = false;
         return;
     }
     if (ch == '\n') {
         _term_newline(term);
+        term->cursor_col = 0;
+        term->pending_wrap = false;
         return;
     }
     if (ch == '\b' || ch == 0x7f) {
         if (term->cursor_col > 0)
             term->cursor_col--;
+        term->pending_wrap = false;
         return;
     }
     if (ch == '\t') {
         uint16_t next = (uint16_t) ((term->cursor_col + 8) & ~7u);
         term->cursor_col = next >= term->cols ? (uint16_t) (term->cols - 1) : next;
+        term->pending_wrap = false;
         return;
     }
     if ((unsigned char) ch < 0x20)
         return;
+
+    if (term->pending_wrap) {
+        term->cursor_col = 0;
+        _term_newline(term);
+        term->pending_wrap = false;
+    }
 
     terminal_cell_t *cell = _term_cell_at(term, term->cursor_col, term->cursor_row);
     cell->ch = ch;
@@ -224,8 +256,7 @@ static void _term_put_char(terminal_state_t *term, char ch)
     cell->bg = term->bg;
 
     if (term->cursor_col + 1 >= term->cols) {
-        term->cursor_col = 0;
-        _term_newline(term);
+        term->pending_wrap = true;
     } else {
         term->cursor_col++;
     }
@@ -292,6 +323,23 @@ static void _term_apply_sgr(terminal_state_t *term)
             term->bg = TERM_PALETTE[param - 40];
         } else if (param == 49) {
             term->bg = TERM_DEFAULT_BG;
+        } else if (param >= 90 && param <= 97) {
+            term->fg = TERM_BRIGHT_PALETTE[param - 90];
+        } else if (param >= 100 && param <= 107) {
+            term->bg = TERM_BRIGHT_PALETTE[param - 100];
+        } else if ((param == 38 || param == 48) && i + 4 < term->csi_param_count
+                   && term->csi_params[i + 1] == 2) {
+            gfx_color_t color = {
+                .a = 0xFF,
+                .r = _term_color_component(term->csi_params[i + 2]),
+                .g = _term_color_component(term->csi_params[i + 3]),
+                .b = _term_color_component(term->csi_params[i + 4]),
+            };
+            if (param == 38)
+                term->fg = color;
+            else
+                term->bg = color;
+            i += 4;
         }
     }
 }
@@ -326,6 +374,7 @@ static void _term_handle_csi(terminal_state_t *term, char final)
         uint16_t col = _term_csi_param(term, 1, 1);
         term->cursor_row = _term_clamp_u16((uint16_t) (row - 1), term->rows - 1);
         term->cursor_col = _term_clamp_u16((uint16_t) (col - 1), term->cols - 1);
+        term->pending_wrap = false;
         break;
     }
     case 'J':
@@ -350,6 +399,7 @@ static void _term_handle_csi(terminal_state_t *term, char final)
     case 'u':
         term->cursor_col = _term_clamp_u16(term->saved_col, term->cols - 1);
         term->cursor_row = _term_clamp_u16(term->saved_row, term->rows - 1);
+        term->pending_wrap = false;
         break;
     default:
         break;
@@ -376,6 +426,10 @@ static void _term_process_byte(terminal_state_t *term, char ch)
             term->csi_has_current = false;
             return;
         }
+        if (ch == ']' || ch == 'k') {
+            term->parse_state = TERM_PARSE_OSC;
+            return;
+        }
         if (ch == '7') {
             term->saved_col = term->cursor_col;
             term->saved_row = term->cursor_row;
@@ -398,6 +452,23 @@ static void _term_process_byte(terminal_state_t *term, char ch)
         if (ch == '?' || ch == ' ')
             return;
         _term_handle_csi(term, ch);
+        return;
+    case TERM_PARSE_OSC:
+        if (ch == '\x07') {
+            _term_reset_parser(term);
+            return;
+        }
+        if (ch == '\x1b') {
+            term->parse_state = TERM_PARSE_STRING_ESCAPE;
+            return;
+        }
+        return;
+    case TERM_PARSE_STRING_ESCAPE:
+        if (ch == '\\') {
+            _term_reset_parser(term);
+            return;
+        }
+        term->parse_state = TERM_PARSE_OSC;
         return;
     }
 }
@@ -566,7 +637,9 @@ static void _pump_shell_commands(terminal_state_t *term)
     if (!term || term->shell_rds[SHELL_TIN] < 0)
         return;
 
-    while (1) {
+    uint32_t commands_processed = 0;
+    uint32_t bytes_processed = 0;
+    while (commands_processed < TERM_COMMANDS_PER_PUMP && bytes_processed < TERM_BYTES_PER_PUMP) {
         char payload[TERM_MAX_PAYLOAD];
         term_command_t command = {0};
         int result
@@ -581,6 +654,7 @@ static void _pump_shell_commands(terminal_state_t *term)
         switch (command.type) {
         case TERM_COMMAND_WRITE_VT100:
             _term_write_bytes(term, payload, command.length);
+            bytes_processed += command.length;
             break;
         case TERM_COMMAND_GET_TERM_INFO:
             _term_send_dimensions_event(term, TERM_EVENT_WINDOW_INFO);
@@ -589,6 +663,7 @@ static void _pump_shell_commands(terminal_state_t *term)
             debug_log("terminal: invalid term command\n");
             break;
         }
+        commands_processed++;
     }
 }
 
