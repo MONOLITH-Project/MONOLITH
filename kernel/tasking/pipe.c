@@ -8,11 +8,14 @@
 #include <kernel/memory/heap.h>
 #include <kernel/tasking/pipe.h>
 
+#define PIPE_CAPACITY (64 * 1024)
+
 typedef struct
 {
     uint8_t *buffer;
     uint64_t size;
     uint64_t capacity;
+    uint64_t read_pos;
 } _pipe_t;
 
 static bool _pipe_initialized = false;
@@ -65,24 +68,32 @@ static rsrc_status_t _pipe_list_op(
         resource, cursor, buffer, buffer_len, out_next_cursor, out_bytes_written);
 }
 
-static rsrc_status_t _pipe_ensure_capacity(_pipe_t *pipe, uint64_t required)
+static uint64_t _pipe_write_pos(const _pipe_t *pipe)
 {
-    if (pipe == NULL)
-        return RSRC_ERROR_INVALID_ARGUMENT;
-    if (required <= pipe->capacity)
-        return RSRC_STATUS_OK;
+    return (pipe->read_pos + pipe->size) % pipe->capacity;
+}
 
-    uint64_t new_capacity = pipe->capacity == 0 ? 256 : pipe->capacity;
-    while (new_capacity < required)
-        new_capacity *= 2;
+static uint64_t _pipe_contiguous_read_len(const _pipe_t *pipe, uint64_t requested)
+{
+    uint64_t until_end = pipe->capacity - pipe->read_pos;
+    return requested < until_end ? requested : until_end;
+}
 
-    uint8_t *new_buffer = (uint8_t *) krealloc(pipe->buffer, new_capacity);
-    if (new_buffer == NULL)
-        return RSRC_ERROR_NO_MEMORY;
+static uint64_t _pipe_contiguous_write_len(const _pipe_t *pipe, uint64_t write_pos, uint64_t requested)
+{
+    uint64_t until_end = pipe->capacity - write_pos;
+    return requested < until_end ? requested : until_end;
+}
 
-    pipe->buffer = new_buffer;
-    pipe->capacity = new_capacity;
-    return RSRC_STATUS_OK;
+static void _pipe_destroy_op(rsrc_t *resource)
+{
+    if (resource == NULL || resource->type_state == NULL)
+        return;
+
+    _pipe_t *pipe = (_pipe_t *) resource->type_state;
+    kfree(pipe->buffer);
+    kfree(pipe);
+    resource->type_state = NULL;
 }
 
 static rsrc_status_t _pipe_read_op(
@@ -94,19 +105,23 @@ static rsrc_status_t _pipe_read_op(
     (void) handle_state;
 
     _pipe_t *pipe = (_pipe_t *) resource->type_state;
-    if (pipe->size == 0) {
+    if (pipe->size == 0 || pipe->capacity == 0) {
         *out_bytes_read = 0;
         return RSRC_STATUS_OK;
     }
 
     uint64_t bytes_read = buffer_len < pipe->size ? buffer_len : pipe->size;
-    memcpy(buffer, pipe->buffer, bytes_read);
+    uint64_t first_chunk = _pipe_contiguous_read_len(pipe, bytes_read);
+    memcpy(buffer, pipe->buffer + pipe->read_pos, first_chunk);
 
-    if (bytes_read < pipe->size) {
-        for (uint64_t i = bytes_read; i < pipe->size; i++)
-            pipe->buffer[i - bytes_read] = pipe->buffer[i];
-    }
+    uint64_t remaining = bytes_read - first_chunk;
+    if (remaining > 0)
+        memcpy((uint8_t *) buffer + first_chunk, pipe->buffer, remaining);
+
+    pipe->read_pos = (pipe->read_pos + bytes_read) % pipe->capacity;
     pipe->size -= bytes_read;
+    if (pipe->size == 0)
+        pipe->read_pos = 0;
 
     *out_bytes_read = bytes_read;
     return RSRC_STATUS_OK;
@@ -125,13 +140,23 @@ static rsrc_status_t _pipe_write_op(
     (void) handle_state;
 
     _pipe_t *pipe = (_pipe_t *) resource->type_state;
-    rsrc_status_t result = _pipe_ensure_capacity(pipe, pipe->size + buffer_len);
-    if (result != RSRC_STATUS_OK)
-        return result;
+    uint64_t available = pipe->capacity - pipe->size;
+    uint64_t bytes_written = buffer_len < available ? buffer_len : available;
+    if (bytes_written == 0) {
+        *out_bytes_written = 0;
+        return RSRC_STATUS_OK;
+    }
 
-    memcpy(pipe->buffer + pipe->size, buffer, buffer_len);
-    pipe->size += buffer_len;
-    *out_bytes_written = buffer_len;
+    uint64_t write_pos = _pipe_write_pos(pipe);
+    uint64_t first_chunk = _pipe_contiguous_write_len(pipe, write_pos, bytes_written);
+    memcpy(pipe->buffer + write_pos, buffer, first_chunk);
+
+    uint64_t remaining = bytes_written - first_chunk;
+    if (remaining > 0)
+        memcpy(pipe->buffer, (const uint8_t *) buffer + first_chunk, remaining);
+
+    pipe->size += bytes_written;
+    *out_bytes_written = bytes_written;
     return RSRC_STATUS_OK;
 }
 
@@ -147,7 +172,7 @@ static rsrc_status_t _pipe_poll_op(
     uint64_t ready = 0;
     if ((requested_events & RSRC_POLL_READ) != 0 && pipe->size > 0)
         ready |= RSRC_POLL_READ;
-    if ((requested_events & RSRC_POLL_WRITE) != 0)
+    if ((requested_events & RSRC_POLL_WRITE) != 0 && pipe->size < pipe->capacity)
         ready |= RSRC_POLL_WRITE;
 
     *out_ready_events = ready;
@@ -177,6 +202,14 @@ rsrc_status_t pipe_create(const char *name, rsrc_t **out_resource)
     }
 
     memset(pipe, 0, sizeof(*pipe));
+    pipe->buffer = (uint8_t *) kmalloc(PIPE_CAPACITY);
+    if (pipe->buffer == NULL) {
+        kfree(pipe);
+        kfree(resource);
+        return RSRC_ERROR_NO_MEMORY;
+    }
+    pipe->capacity = PIPE_CAPACITY;
+
     resource->header.type = RSRC_TYPE_RESOURCE;
     resource->ops = &_pipe_ops;
     resource->type_state = pipe;
@@ -185,6 +218,7 @@ rsrc_status_t pipe_create(const char *name, rsrc_t **out_resource)
         rsrc_status_t result
             = rsmgr_attach_resource_at_path(RSRC_DOMAIN_PIPE, name, resource, &_pipe_ops);
         if (result != RSRC_STATUS_OK) {
+            kfree(pipe->buffer);
             kfree(pipe);
             kfree(resource);
             return result;
@@ -200,7 +234,7 @@ static const rsrc_ops_t _pipe_ops = {
     .lookup = NULL,
     .dup_handle = NULL,
     .close_handle = NULL,
-    .destroy = NULL,
+    .destroy = _pipe_destroy_op,
     .describe = NULL,
     .seek = NULL,
     .list = _pipe_list_op,
