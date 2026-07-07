@@ -10,4 +10,5 @@
 #include <kernel/tasking/task.h>
 
 void scheduler_init();
-void scheduler_tick();
+void scheduler_tick(void);
+task_t *sched_next(void);

@@ -239,7 +239,7 @@ void isr_handler(struct interrupt_registers *regs)
         }
 
         task_t *current = task_get_current();
-        if (current != NULL && current->user_mode) {
+        if (current != NULL && current->user_mode && (regs->cs & 0x03) == 0x03) {
             debug_log_fmt("Task crashed!\n");
             debug_log_fmt("%s\n", error_message);
             debug_log_fmt("RIP = 0x%x\n", regs->rip);
@@ -273,10 +273,19 @@ void irq_unregister_handler(const uint8_t irq)
     interrupts_set_irq_mask(irq, true);
 }
 
-void irq_handler(struct interrupt_registers *reg)
+struct interrupt_registers *irq_handler(struct interrupt_registers *reg)
 {
     interrupts_eoi(reg->isr_number);
-    void (*handler)(struct interrupt_registers *) = _irq_routines[reg->isr_number - 32];
-    if (handler)
-        handler(reg);
+    void *handler = _irq_routines[reg->isr_number - 32];
+    if (!handler)
+        return reg;
+
+    if (reg->isr_number == 32) {
+        struct interrupt_registers *(*timer_handler)(struct interrupt_registers *) = handler;
+        return timer_handler(reg);
+    }
+
+    void (*legacy_handler)(struct interrupt_registers *) = handler;
+    legacy_handler(reg);
+    return reg;
 }

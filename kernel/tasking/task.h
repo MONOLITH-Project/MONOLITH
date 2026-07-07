@@ -58,16 +58,21 @@ struct task
     task_mem_t memory;
     rsrc_handle_table_t handle_table;
     uintptr_t stack_bottom;
+    size_t cpu_core;
     unsigned int quantum;
     unsigned int quantum_remaining;
     bool user_mode;
+    bool kernel_frame_valid;
+    bool kernel_frame_has_stack_slots;
     task_lifecycle_state_t state;
     rsrc_node_t *resource_node;
 };
 
 void task_switching_init();
+void task_switching_init_cpu(void);
 task_t *task_create(void *entry_point, rsrc_t *path_resource, task_mode_t mode);
 task_t *task_get_current();
+size_t task_assign_cpu(task_t *task);
 void task_set_parent(task_t *task, task_t *parent);
 uintptr_t task_find_free_vaddr(task_t *task, size_t num_pages);
 task_t *task_find_by_id(uint64_t id);
@@ -81,7 +86,10 @@ int task_map(
 int task_unmap(task_t *task, uintptr_t virt_addr, size_t page_count, bool release_on_exit);
 void task_remove(task_t *task);
 void task_switch(task_t *task);
+struct interrupt_registers *task_switch_from_interrupt(
+    struct interrupt_registers *regs, task_t *task);
 void task_set_state(task_t *task, task_lifecycle_state_t state);
 void task_mark_exiting(task_t *task);
+bool task_current_cpu_has_runnable();
 task_t *task_next(task_t *task);
 task_t *task_idle();

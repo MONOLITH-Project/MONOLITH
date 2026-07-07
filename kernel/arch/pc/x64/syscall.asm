@@ -40,23 +40,18 @@
 %endmacro
 
 section .text
-extern syscall_kernel_stack_top
 extern syscall_dispatch
-
-section .bss
-syscall_saved_user_rsp:
-    resq 1
 
 section .text
 global _syscall_handler
 _syscall_handler:
-    mov [rel syscall_saved_user_rsp], rsp
-    mov rsp, [rel syscall_kernel_stack_top]
+    mov [gs:8], rsp
+    mov rsp, [gs:0]
 
     ; Build an iretq frame. syscall saves the userspace RIP in RCX and
     ; RFLAGS in R11, but does not save or switch RSP for us.
     push qword 0x23
-    push qword [rel syscall_saved_user_rsp]
+    push qword [gs:8]
     push r11
     push qword 0x1B
     push rcx

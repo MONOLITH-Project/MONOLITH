@@ -7,6 +7,8 @@
 #include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/interrupts.h>
 #include <kernel/arch/pc/pic.h>
+#include <kernel/arch/pc/x64/smp.h>
+#include <stddef.h>
 
 void interrupts_eoi(uint8_t isr)
 {
@@ -24,25 +26,34 @@ void interrupts_set_irq_mask(uint8_t irq, bool mask)
         apic_set_irq_mask(irq, mask);
 }
 
-static uint64_t _interrupt_disable_count = 0;
-static bool _first_interrupt_enable = true;
+static uint64_t _interrupt_disable_count[SMP_MAX_CPUS];
+static bool _first_interrupt_enable[SMP_MAX_CPUS] = {true};
+
+static size_t _interrupt_cpu_index(void)
+{
+    size_t cpu = smp_current_cpu_index();
+    return cpu < SMP_MAX_CPUS ? cpu : 0;
+}
+
 void interrupts_disable()
 {
-    if (_interrupt_disable_count == 0)
+    size_t cpu = _interrupt_cpu_index();
+    if (_interrupt_disable_count[cpu] == 0)
         asm_cli();
-    _interrupt_disable_count++;
+    _interrupt_disable_count[cpu]++;
 }
 
 void interrupts_enable()
 {
-    if (_interrupt_disable_count == 0) {
-        if (_first_interrupt_enable) {
+    size_t cpu = _interrupt_cpu_index();
+    if (_interrupt_disable_count[cpu] == 0) {
+        if (_first_interrupt_enable[cpu]) {
             asm_sti();
-            _first_interrupt_enable = false;
+            _first_interrupt_enable[cpu] = false;
         }
         return;
     }
-    _interrupt_disable_count--;
-    if (_interrupt_disable_count == 0)
+    _interrupt_disable_count[cpu]--;
+    if (_interrupt_disable_count[cpu] == 0)
         asm_sti();
 }

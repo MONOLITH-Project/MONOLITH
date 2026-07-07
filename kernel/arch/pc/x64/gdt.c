@@ -3,37 +3,89 @@
  * SPDX-License-Identifier: GPL-3.0
  */
 
+#include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/gdt.h>
+#include <kernel/arch/pc/x64/smp.h>
 #include <kernel/devices/debug.h>
 
-gdt_t gdt = {0};
-gdtr_t gdtr = {0};
+#define IA32_GS_BASE 0xC0000101
+typedef struct
+{
+    uintptr_t syscall_kernel_stack_top;
+    uintptr_t syscall_saved_user_rsp;
+} cpu_local_t;
 
-static tss_entry_t _tss = {0};
-extern uintptr_t syscall_kernel_stack_top;
+static gdt_t _cpu_gdts[SMP_MAX_CPUS];
+static gdtr_t _cpu_gdtrs[SMP_MAX_CPUS];
+static tss_entry_t _tss[SMP_MAX_CPUS];
+static cpu_local_t _cpu_local[SMP_MAX_CPUS];
+
+extern void gdt_flush_with(gdtr_t *gdtr);
+
+static size_t _current_cpu_index(void)
+{
+    size_t cpu = smp_current_cpu_index();
+    return cpu < SMP_MAX_CPUS ? cpu : 0;
+}
+
+static void _install_cpu_local(size_t cpu)
+{
+    asm_write_msr(IA32_GS_BASE, (uint64_t) &_cpu_local[cpu]);
+}
+
+static void _gdt_set_gate(
+    gdt_t *table, int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)
+{
+    table->entries[index].base_low = (base & 0xFFFF);
+    table->entries[index].base_middle = (base >> 16) & 0xFF;
+    table->entries[index].base_high = (base >> 24) & 0xFF;
+    table->entries[index].limit_low = (limit & 0xFFFF);
+    table->entries[index].granularity = (limit >> 16) & 0x0F;
+    table->entries[index].granularity |= gran & 0xF0;
+    table->entries[index].access = access;
+}
+
+static void _gdt_tss_load(gdt_t *table, void *tss)
+{
+    const uint64_t addr = (uint64_t) tss;
+    table->tss.limit_low = sizeof(tss_entry_t) - 1;
+    table->tss.base_low = addr & 0xFFFF;
+    table->tss.base_middle = (addr >> 16) & 0xFF;
+    table->tss.base_high = (addr >> 24) & 0xFF;
+    table->tss.base_upper32 = addr >> 32;
+    table->tss.access = 0x89;
+    table->tss.granularity = 0x00;
+    table->tss.reserved = 0;
+}
+
+static void _gdt_init_table(size_t cpu)
+{
+    gdt_t *table = &_cpu_gdts[cpu];
+
+    _gdt_set_gate(table, 0, 0, 0, 0, 0);                /* Null segment */
+    _gdt_set_gate(table, 1, 0, 0xFFFFFFFF, 0x9A, 0x20); /* Code segment */
+    _gdt_set_gate(table, 2, 0, 0xFFFFFFFF, 0x92, 0xC0); /* Data segment */
+    _gdt_set_gate(table, 3, 0, 0xFFFFFFFF, 0xFA, 0x20); /* User mode code segment */
+    _gdt_set_gate(table, 4, 0, 0xFFFFFFFF, 0xF2, 0xC0); /* User mode data segment */
+
+    _tss[cpu].iomap_base = sizeof(_tss[cpu]);
+    _gdt_tss_load(table, &_tss[cpu]);
+
+    _cpu_gdtrs[cpu].limit = sizeof(*table) - 1;
+    _cpu_gdtrs[cpu].base = (uint64_t) table;
+}
 
 void gdt_init()
 {
     debug_log("Initializing the GDT...\n");
 
-    /* https://wiki.osdev.org/GDT_Tutorial#Flat_/_Long_Mode_Setup */
-    gdt_set_gate(0, 0, 0, 0, 0);                /* Null segment */
-    gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0x20); /* Code segment */
-    gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xA0); /* Data segment */
-    gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0x20); /* User mode code segment */
-    gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xA0); /* User mode data segment */
-
-    /* TSS */
-    _tss.iomap_base = sizeof(_tss);
-    _tss.rsp0 = 0xFFFFFFFFFFFFF000LL; /* Kernel stack pointer */
-    syscall_kernel_stack_top = _tss.rsp0;
-    gdt_tss_load(&_tss);
-
-    gdtr.limit = sizeof(gdt) - 1;
-    gdtr.base = (uint64_t) &gdt;
+    _tss[0].rsp0 = 0xFFFFFFFFFFFFF000LL; /* Kernel stack pointer */
+    _cpu_local[0].syscall_kernel_stack_top = _tss[0].rsp0;
+    _install_cpu_local(0);
+    _gdt_init_table(0);
 
     debug_log("Flushing the GDT...\n");
-    gdt_flush();
+    gdt_flush_with(&_cpu_gdtrs[0]);
     debug_log("Flushing the TSS...\n");
     gdt_flush_tss();
     debug_log("Initialized the GDT\n");
@@ -41,30 +93,18 @@ void gdt_init()
 
 void gdt_tss_set_rsp0(uint64_t rsp0)
 {
-    _tss.rsp0 = rsp0;
-    syscall_kernel_stack_top = rsp0;
+    size_t cpu = _current_cpu_index();
+    _tss[cpu].rsp0 = rsp0;
+    _tss[cpu].iomap_base = sizeof(_tss[cpu]);
+    _cpu_local[cpu].syscall_kernel_stack_top = rsp0;
+    _install_cpu_local(cpu);
 }
 
-void gdt_set_gate(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)
+void gdt_reload_tss(void)
 {
-    gdt.entries[index].base_low = (base & 0xFFFF);
-    gdt.entries[index].base_middle = (base >> 16) & 0xFF;
-    gdt.entries[index].base_high = (base >> 24) & 0xFF;
-    gdt.entries[index].limit_low = (limit & 0xFFFF);
-    gdt.entries[index].granularity = (limit >> 16) & 0x0F;
-    gdt.entries[index].granularity |= gran & 0xF0;
-    gdt.entries[index].access = access;
-}
-
-void gdt_tss_load(void *tss)
-{
-    const uint64_t addr = (uint64_t) tss;
-    gdt.tss.limit_low = sizeof(tss_entry_t) - 1;
-    gdt.tss.base_low = addr & 0xFFFF;
-    gdt.tss.base_middle = (addr >> 16) & 0xFF;
-    gdt.tss.base_high = (addr >> 24) & 0xFF;
-    gdt.tss.base_upper32 = addr >> 32;
-    gdt.tss.access = 0x89;
-    gdt.tss.granularity = 0x00;
-    gdt.tss.reserved = 0;
+    size_t cpu = _current_cpu_index();
+    _gdt_init_table(cpu);
+    _install_cpu_local(cpu);
+    gdt_flush_with(&_cpu_gdtrs[cpu]);
+    gdt_flush_tss();
 }

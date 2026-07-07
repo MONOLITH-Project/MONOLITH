@@ -6,6 +6,7 @@
 #include <kernel/arch/pc/apic.h>
 #include <kernel/arch/pc/asm.h>
 #include <kernel/arch/pc/gdt.h>
+#include <kernel/arch/pc/ia32/smp.h>
 #include <kernel/arch/pc/ia32/multiboot2.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/arch/pc/pic.h>
@@ -191,7 +192,9 @@ void kmain(uint32_t magic, uintptr_t mbi_addr)
     vmm_init();
     if (_rsdp != NULL)
         apic_init(_rsdp);
+    timer_init_cpu();
     heap_init(10);
+    smp_init();
     syscalls_init();
     device_domain_init();
     debug_device_init();
@@ -215,17 +218,23 @@ void kmain(uint32_t magic, uintptr_t mbi_addr)
             asm_hlt();
     }
 
-    debug_log_fmt("Launching init process: %s\n", init_path);
     task_t *task = load_exec(init_path, NULL, 1, (const char *[]){init_path});
     if (task == NULL) {
         debug_log_fmt("Failed to load init ELF: %s\n", init_path);
         while (1)
             asm_hlt();
     }
+    size_t target_cpu = task_assign_cpu(task);
+    debug_log_fmt(
+        "Launching task %d (%s) on CPU core %d\n",
+        (int) task->id,
+        init_path,
+        (int) target_cpu);
     task_set_state(task, TASK_STATE_RUNNABLE);
 
     stop_debug_console();
     scheduler_init();
+    smp_start_scheduler();
 
     task_get_current()->quantum = 0; /* De-prioritize the kernel task */
     while (1)

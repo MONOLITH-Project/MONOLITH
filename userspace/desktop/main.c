@@ -15,197 +15,65 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <term.h>
 #include <unistd.h>
 
-#define TERMINAL_TAP_COUNT 16
-#define TERMINAL_TAP_BUFFER_SIZE (sizeof(term_command_t) + TERM_MAX_PAYLOAD)
-
 gfx_font_t default_font;
 
-typedef enum {
-    TERMINAL_TAP_COMMAND,
-    TERMINAL_TAP_EVENT,
-} terminal_tap_kind_t;
+static rsrc_handle_t _task_tin = RSRC_INVALID_HANDLE;
+static rsrc_handle_t _task_tout = RSRC_INVALID_HANDLE;
 
-typedef struct
+static void _launch_task_unlogged(int argc, const char **argv)
 {
-    bool active;
-    bool line_start;
-    rsrc_handle_t handle;
-    terminal_tap_kind_t kind;
-    const char *source;
-    uint8_t buffer[TERMINAL_TAP_BUFFER_SIZE];
-    uint32_t length;
-} terminal_tap_t;
-
-static terminal_tap_t _terminal_taps[TERMINAL_TAP_COUNT];
-
-static terminal_tap_t *_terminal_tap_alloc(
-    rsrc_handle_t handle, terminal_tap_kind_t kind, const char *source)
-{
-    for (uint32_t i = 0; i < TERMINAL_TAP_COUNT; i++) {
-        if (_terminal_taps[i].active)
-            continue;
-        _terminal_taps[i] = (terminal_tap_t){
-            .active = true,
-            .line_start = true,
-            .handle = handle,
-            .kind = kind,
-            .source = source,
-        };
-        return &_terminal_taps[i];
-    }
-
-    return NULL;
-}
-
-static void _terminal_tap_release(rsrc_handle_t handle)
-{
-    for (uint32_t i = 0; i < TERMINAL_TAP_COUNT; i++) {
-        if (_terminal_taps[i].active && _terminal_taps[i].handle == handle)
-            _terminal_taps[i] = (terminal_tap_t){0};
-    }
-}
-
-static void _debug_write_text(const char *text)
-{
-    static rsrc_handle_t debug_handle = RSRC_INVALID_HANDLE;
-    if (!text)
+    rsrc_handle_t task = task_create(argc, argv, NULL, 0);
+    if (task < 0) {
+        debug_log("desktop: failed to launch task\n");
         return;
-    if (debug_handle < 0)
-        debug_handle = rsmgr_open("device:/debug");
-    if (debug_handle >= 0)
-        rsmgr_write(debug_handle, text, (uint32_t) strlen(text));
+    }
+
+    close(task);
 }
 
-static void _debug_write_bytes(const void *bytes, uint32_t length)
+static bool _ensure_task_pipes(void)
 {
-    static rsrc_handle_t debug_handle = RSRC_INVALID_HANDLE;
-    if (!bytes || length == 0)
+    if (_task_tin >= 0 && _task_tout >= 0)
+        return true;
+
+    _task_tin = pipe_create(NULL);
+    _task_tout = pipe_create(NULL);
+    if (_task_tin < 0 || _task_tout < 0) {
+        if (_task_tin >= 0)
+            close(_task_tin);
+        if (_task_tout >= 0)
+            close(_task_tout);
+        _task_tin = RSRC_INVALID_HANDLE;
+        _task_tout = RSRC_INVALID_HANDLE;
+        return false;
+    }
+
+    return true;
+}
+
+static void _launch_task(int argc, const char **argv)
+{
+    if (!_ensure_task_pipes()) {
+        debug_log("desktop: failed to create task pipes\n");
+        _launch_task_unlogged(argc, argv);
         return;
-    if (debug_handle < 0)
-        debug_handle = rsmgr_open("device:/debug");
-    if (debug_handle >= 0)
-        rsmgr_write(debug_handle, bytes, length);
-}
-
-static void _terminal_tap_write_source(terminal_tap_t *tap)
-{
-    const char *source = tap->source ? tap->source : "unknown";
-    _debug_write_bytes(source, (uint32_t) strlen(source));
-    _debug_write_bytes(": ", 2);
-}
-
-static void _terminal_tap_write_payload(terminal_tap_t *tap, const uint8_t *payload, uint32_t length)
-{
-    for (uint32_t i = 0; i < length; i++) {
-        if (tap->line_start) {
-            _terminal_tap_write_source(tap);
-            tap->line_start = false;
-        }
-
-        _debug_write_bytes(&payload[i], 1);
-        if (payload[i] == '\n')
-            tap->line_start = true;
-    }
-}
-
-static void _terminal_tap_parse(terminal_tap_t *tap)
-{
-    uint32_t header_size = tap->kind == TERMINAL_TAP_COMMAND ? sizeof(term_command_t)
-                                                             : sizeof(term_event_t);
-
-    while (tap->length >= header_size) {
-        uint32_t payload_length = 0;
-
-        if (tap->kind == TERMINAL_TAP_COMMAND) {
-            term_command_t command;
-            memcpy(&command, tap->buffer, sizeof(command));
-            payload_length = command.length;
-        } else {
-            term_event_t event;
-            memcpy(&event, tap->buffer, sizeof(event));
-            payload_length = event.length;
-        }
-
-        if (payload_length > TERM_MAX_PAYLOAD) {
-            tap->length = 0;
-            _debug_write_text("terminal tap: invalid packet length\n");
-            return;
-        }
-
-        uint32_t packet_size = header_size + payload_length;
-        if (tap->length < packet_size)
-            return;
-
-        _terminal_tap_write_payload(tap, tap->buffer + header_size, payload_length);
-        tap->length -= packet_size;
-        if (tap->length > 0)
-            memmove(tap->buffer, tap->buffer + packet_size, tap->length);
-    }
-}
-
-static void _terminal_tap_pump_one(terminal_tap_t *tap)
-{
-    while (tap->active && tap->length < sizeof(tap->buffer)) {
-        uint64_t bytes_read = 0;
-        int result = rsmgr_read(
-            tap->handle,
-            tap->buffer + tap->length,
-            (uint32_t) (sizeof(tap->buffer) - tap->length),
-            &bytes_read);
-        if (result < 0 || bytes_read == 0)
-            break;
-        tap->length += (uint32_t) bytes_read;
-        _terminal_tap_parse(tap);
-    }
-}
-
-static void _terminal_taps_pump(void)
-{
-    for (uint32_t i = 0; i < TERMINAL_TAP_COUNT; i++) {
-        if (_terminal_taps[i].active)
-            _terminal_tap_pump_one(&_terminal_taps[i]);
-    }
-}
-
-static rsrc_handle_t _launch_task(int argc, const char **argv)
-{
-    rsrc_handle_t tin = pipe_create(NULL);
-    rsrc_handle_t tout = pipe_create(NULL);
-    if (tin < 0 || tout < 0) {
-        debug_log("desktop: failed to create task log pipes\n");
-        if (tin >= 0)
-            close(tin);
-        if (tout >= 0)
-            close(tout);
-        return RSRC_INVALID_HANDLE;
     }
 
     task_create_inherit_t inherit[] = {
-        {.current_descriptor = tin, .target_descriptor = TERM_RD_TIN},
-        {.current_descriptor = tout, .target_descriptor = TERM_RD_TOUT},
+        {.current_descriptor = _task_tin, .target_descriptor = TERM_RD_TIN},
+        {.current_descriptor = _task_tout, .target_descriptor = TERM_RD_TOUT},
     };
     rsrc_handle_t task = task_create(argc, argv, inherit, 2);
     if (task < 0) {
-        debug_log("desktop: failed to launch logged task\n");
-        close(tin);
-        close(tout);
-        return RSRC_INVALID_HANDLE;
+        debug_log("desktop: failed to launch task with pipes\n");
+        _launch_task_unlogged(argc, argv);
+        return;
     }
 
-    if (!_terminal_tap_alloc(tin, TERMINAL_TAP_COMMAND, argv[0])
-        || !_terminal_tap_alloc(tout, TERMINAL_TAP_EVENT, argv[0])) {
-        debug_log("desktop: failed to register task log pipes\n");
-        _terminal_tap_release(tin);
-        _terminal_tap_release(tout);
-        close(tin);
-        close(tout);
-    }
-
-    return task;
+    close(task);
 }
 
 static void _menu_action_about(void)
@@ -327,7 +195,6 @@ int main()
         bool client_activity = protocol_server_pump();
         bool menubar_changed = update_menubar_state(&context);
         bool windows_changed = update_windows_state(&context);
-        _terminal_taps_pump();
 
         needs_redraw = needs_redraw || client_activity || menubar_changed || windows_changed;
 

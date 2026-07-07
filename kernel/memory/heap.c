@@ -8,6 +8,7 @@
 #include <kernel/memory/heap.h>
 #include <kernel/memory/pmm.h>
 #include <kernel/memory/vmm.h>
+#include <kernel/spinlock.h>
 
 typedef struct block_header
 {
@@ -21,6 +22,8 @@ static struct
     size_t total_size;
     block_header_t *free_list;
 } _heap;
+
+static spinlock_t _heap_lock = SPINLOCK_INIT;
 
 static void _add_free_block(void *memory, size_t size)
 {
@@ -64,6 +67,7 @@ bool heap_init(size_t pages)
 void *kmalloc(size_t size)
 {
     block_header_t *current, *previous;
+    bool heap_interrupts = spinlock_lock_irqsave(&_heap_lock);
 
 start:
     current = _heap.free_list;
@@ -84,6 +88,7 @@ start:
             } else {
                 _heap.free_list = new_block;
             }
+            spinlock_unlock_irqrestore(&_heap_lock, heap_interrupts);
             return (void *) ((void *) current + sizeof(block_header_t));
         } else if (current->size >= size) {
             /* Use entire block */
@@ -92,6 +97,7 @@ start:
             } else {
                 _heap.free_list = current->next;
             }
+            spinlock_unlock_irqrestore(&_heap_lock, heap_interrupts);
             return (void *) ((void *) current + sizeof(block_header_t));
         } else {
             previous = current;
@@ -105,6 +111,7 @@ start:
         _add_free_block(vmm_get_hhdm_addr(new_memory), growth_size * PAGE_SIZE);
         goto start;
     }
+    spinlock_unlock_irqrestore(&_heap_lock, heap_interrupts);
     return NULL;
 }
 
@@ -132,6 +139,7 @@ void kfree(void *pointer)
     if (pointer == NULL)
         return;
 
+    bool heap_interrupts = spinlock_lock_irqsave(&_heap_lock);
     block_header_t *block = (block_header_t *) ((void *) pointer - sizeof(block_header_t));
     block_header_t *current = _heap.free_list;
     block_header_t *previous = NULL;
@@ -162,4 +170,5 @@ void kfree(void *pointer)
         block->size += sizeof(block_header_t) + block->next->size;
         block->next = block->next->next;
     }
+    spinlock_unlock_irqrestore(&_heap_lock, heap_interrupts);
 }

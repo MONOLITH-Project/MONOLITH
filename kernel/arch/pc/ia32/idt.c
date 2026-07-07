@@ -214,7 +214,7 @@ void isr_handler(struct interrupt_registers *regs)
             strcpy(error_message, error_messages[regs->isr_number]);
         }
         task_t *current = task_get_current();
-        if (current != NULL && current->user_mode) {
+        if (current != NULL && current->user_mode && (regs->cs & 0x03) == 0x03) {
             debug_log_fmt("Task crashed!\n%s\nEIP = 0x%x\n", error_message, regs->rip);
             task_mark_exiting(current);
             task_t *next = task_next(current);
@@ -236,12 +236,21 @@ void isr_handler(struct interrupt_registers *regs)
     }
 }
 
-void irq_handler(struct interrupt_registers *regs)
+struct interrupt_registers *irq_handler(struct interrupt_registers *regs)
 {
     interrupts_eoi(regs->isr_number);
-    void (*handler)(struct interrupt_registers *) = _irq_routines[regs->isr_number - 32];
-    if (handler != NULL)
-        handler(regs);
+    void *handler = _irq_routines[regs->isr_number - 32];
+    if (!handler)
+        return regs;
+
+    if (regs->isr_number == 32) {
+        struct interrupt_registers *(*timer_handler)(struct interrupt_registers *) = handler;
+        return timer_handler(regs);
+    }
+
+    void (*legacy_handler)(struct interrupt_registers *) = handler;
+    legacy_handler(regs);
+    return regs;
 }
 
 void irq_register_handler(uint8_t num, void *handler)

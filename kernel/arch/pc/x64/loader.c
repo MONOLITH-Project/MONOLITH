@@ -1,7 +1,6 @@
 /* Copyright (c) 2025, Ibrahim KAIKAA <ibrahimkaikaa@gmail.com>
  * SPDX-License-Identifier: GPL-3.0
  */
-#include <kernel/arch/pc/interrupts.h>
 #include <kernel/devices/debug.h>
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
@@ -11,6 +10,19 @@
 #include <kernel/tasking/elf.h>
 #include <kernel/tasking/loader.h>
 #include <shared/include/monolith/stdio.h>
+
+static bool _interrupts_disable_save(void)
+{
+    uintptr_t rflags;
+    __asm__ volatile("pushfq; pop %0; cli" : "=r"(rflags) :: "memory");
+    return (rflags & 0x200) != 0;
+}
+
+static void _interrupts_restore(bool interrupts_enabled)
+{
+    if (interrupts_enabled)
+        __asm__ volatile("sti" ::: "memory");
+}
 
 static void _setup_user_stack_args(
     task_t *task,
@@ -89,7 +101,7 @@ static task_t *_load_elf_impl(const char *path, task_t *parent, int argc, const 
     if (file == NULL)
         return NULL;
 
-    interrupts_disable();
+    bool interrupts_enabled = _interrupts_disable_save();
     debug_log("Loading ELF file...\n");
 
     union {
@@ -99,19 +111,19 @@ static task_t *_load_elf_impl(const char *path, task_t *parent, int argc, const 
 
     if (parse_elf_header(file, &header) < 0) {
         debug_log("ELF parsing error\n");
-        interrupts_enable();
+        _interrupts_restore(interrupts_enabled);
         return NULL;
     }
     debug_log("Loaded ELF file\n");
 
     if (header.common.format != ELF_FORMAT_64BIT) {
         debug_log("ELF is not 64-bit\n");
-        interrupts_enable();
+        _interrupts_restore(interrupts_enabled);
         return NULL;
     } else if (header.common.isa != ELF_ISA_X86_64) {
         debug_log_fmt(
             "ELF is not compatible with x86_64! header.isa = 0x%x\n", (uintptr_t) header.common.isa);
-        interrupts_enable();
+        _interrupts_restore(interrupts_enabled);
         return NULL;
     }
     uintptr_t entry_offset = header.elf64.entry_offset;
@@ -121,7 +133,7 @@ static task_t *_load_elf_impl(const char *path, task_t *parent, int argc, const 
 
     if (header.common.type != ELF_TYPE_EXEC) {
         debug_log("ELF is not an executable\n");
-        interrupts_enable();
+        _interrupts_restore(interrupts_enabled);
         return NULL;
     }
 
@@ -133,7 +145,7 @@ static task_t *_load_elf_impl(const char *path, task_t *parent, int argc, const 
         elf64_psh_t psh;
         if (parse_elf_program_header(file, pht_offset + i * pht_entry_size, &psh, pht_entry_size)
             < 0) {
-            interrupts_enable();
+            _interrupts_restore(interrupts_enabled);
             return NULL;
         }
 
@@ -149,7 +161,7 @@ static task_t *_load_elf_impl(const char *path, task_t *parent, int argc, const 
         void *phys_mem = pmm_alloc(npages);
         if (!phys_mem) {
             debug_log("Failed to allocate physical memory for segment\n");
-            interrupts_enable();
+            _interrupts_restore(interrupts_enabled);
             return NULL;
         }
 
@@ -174,7 +186,7 @@ static task_t *_load_elf_impl(const char *path, task_t *parent, int argc, const 
             || bytes_read < psh.section_file_size) {
             debug_log("Failed to read segment data\n");
             pmm_free(phys_mem, npages);
-            interrupts_enable();
+            _interrupts_restore(interrupts_enabled);
             return NULL;
         }
     }
@@ -190,7 +202,7 @@ static task_t *_load_elf_impl(const char *path, task_t *parent, int argc, const 
     task_set_state(task, TASK_STATE_SLEEPING);
     task_set_parent(task, parent);
 
-    interrupts_enable();
+    _interrupts_restore(interrupts_enabled);
     return task;
 }
 

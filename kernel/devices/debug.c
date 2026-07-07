@@ -6,6 +6,7 @@
 #include <kernel/devices/debug.h>
 #include <kernel/devices/device_domain.h>
 #include <kernel/klibc/string.h>
+#include <kernel/spinlock.h>
 #include <kernel/timer.h>
 #include <libs/flanterm/src/flanterm_backends/fb.h>
 #include <stdarg.h>
@@ -22,18 +23,7 @@ static serial_port_t _debug_port = 0;
  */
 extern struct flanterm_context *_fb_ctx;
 
-static volatile int _debug_lock = 0;
-
-static inline void _debug_lock_acquire()
-{
-    while (__sync_lock_test_and_set(&_debug_lock, 1))
-        __asm__ volatile("pause");
-}
-
-static inline void _debug_lock_release()
-{
-    __sync_lock_release(&_debug_lock);
-}
+static spinlock_t _debug_lock = SPINLOCK_INIT;
 
 static inline void _debug_write_char(char c)
 {
@@ -153,10 +143,10 @@ void stop_debug_console(void)
 
 void _debug_log(const char *message)
 {
-    _debug_lock_acquire();
+    spinlock_lock(&_debug_lock);
     _debug_log_timestamp();
     _debug_write_string(message);
-    _debug_lock_release();
+    spinlock_unlock(&_debug_lock);
 }
 
 static inline void _debug_logd(int d)
@@ -228,7 +218,7 @@ void _debug_log_fmt(const char *format, ...)
     if (!_debug_port)
         return;
 
-    _debug_lock_acquire();
+    spinlock_lock(&_debug_lock);
     va_start(args, format);
     _debug_log_timestamp();
     while (*format != '\0') {
@@ -261,7 +251,7 @@ void _debug_log_fmt(const char *format, ...)
     }
 
     va_end(args);
-    _debug_lock_release();
+    spinlock_unlock(&_debug_lock);
 }
 
 bool _debug_assert(bool expr, const char *line, const char *expr_str)
@@ -287,10 +277,10 @@ static rsrc_status_t _debug_dev_write(
         return RSRC_ERROR_INVALID_ARGUMENT;
     }
 
-    _debug_lock_acquire();
+    spinlock_lock(&_debug_lock);
     for (uint64_t i = 0; i < buffer_len; i++)
         _debug_write_char(((const char *) buffer)[i]);
-    _debug_lock_release();
+    spinlock_unlock(&_debug_lock);
 
     if (out_bytes_written != NULL)
         *out_bytes_written = buffer_len;

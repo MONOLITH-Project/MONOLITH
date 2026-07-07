@@ -41,4 +41,4 @@ void idt_init(void);
 void idt_set_gate(uint8_t num, void *handler, uint8_t flags);
 void idt_flush();
 void isr_handler(struct interrupt_registers *);
-void irq_handler(struct interrupt_registers *);
+struct interrupt_registers *irq_handler(struct interrupt_registers *);

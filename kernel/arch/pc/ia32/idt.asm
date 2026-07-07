@@ -148,6 +148,7 @@ irq_common_stub:
     push esp
     call irq_handler
     add esp, 4
+    mov esp, eax
     mov ax, [esp + 76]
     and ax, 3
     cmp ax, 3

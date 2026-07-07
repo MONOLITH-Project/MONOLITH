@@ -8,6 +8,7 @@
 #include <kernel/arch/pc/gdt.h>
 #include <kernel/arch/pc/idt.h>
 #include <kernel/arch/pc/pic.h>
+#include <kernel/arch/pc/x64/smp.h>
 #include <kernel/arch/pc/sse.h>
 #include <kernel/devices/debug.h>
 #include <kernel/devices/device_domain.h>
@@ -53,6 +54,9 @@ __attribute__((used, section(".limine_requests"))) static volatile struct limine
 
 __attribute__((used, section(".limine_requests"))) static volatile struct limine_executable_cmdline_request
     limine_cmdline_request = {.id = LIMINE_EXECUTABLE_CMDLINE_REQUEST_ID, .revision = 0};
+
+__attribute__((used, section(".limine_requests"))) static volatile struct limine_mp_request
+    limine_mp_request = {.id = LIMINE_MP_REQUEST_ID, .revision = 0};
 
 __attribute__((used, section(".limine_requests_end"))) static volatile uint64_t
     limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
@@ -128,7 +132,9 @@ void kmain()
     pmm_init();
     vmm_init();
     apic_init(limine_rsdp_request.response->address);
+    timer_init_cpu();
     heap_init(10);
+    smp_init(limine_mp_request.response);
     syscalls_init();
     device_domain_init();
     debug_device_init();
@@ -162,17 +168,23 @@ void kmain()
             asm_hlt();
     }
 
-    debug_log_fmt("Launching init process: %s\n", init_path);
     task_t *task = load_exec(init_path, NULL, 1, (const char *[]){init_path});
     if (task == NULL) {
         debug_log_fmt("Failed to load init ELF: %s\n", init_path);
         while (1)
             asm_hlt();
     }
+    size_t target_cpu = task_assign_cpu(task);
+    debug_log_fmt(
+        "Launching task %d (%s) on CPU core %d\n",
+        (int) task->id,
+        init_path,
+        (int) target_cpu);
     task_set_state(task, TASK_STATE_RUNNABLE);
 
     stop_debug_console();
     scheduler_init();
+    smp_start_scheduler();
 
     task_get_current()->quantum = 0; /* De-prioritize the kernel task */
     while (1)

@@ -6,6 +6,7 @@
 #include <kernel/klibc/memory.h>
 #include <kernel/klibc/string.h>
 #include <kernel/memory/heap.h>
+#include <kernel/spinlock.h>
 #include <kernel/tasking/ipc.h>
 #include <kernel/timer.h>
 
@@ -51,6 +52,7 @@ static _ipc_channel_t **_channels;
 static size_t _channels_capacity;
 static uint64_t _next_channel_id = 1;
 static bool _ipc_resource_initialized = false;
+static spinlock_t _ipc_lock = SPINLOCK_INIT;
 static const rsrc_ops_t _channel_resource_ops;
 
 static _ipc_connection_t *_get_connection_by_task_id(_ipc_channel_t *channel, uint64_t task_id);
@@ -348,9 +350,10 @@ static int _poll_channel_connection(task_t *task, _ipc_channel_t *channel, conne
     return 1;
 }
 
-static int _await_channel_connection(task_t *task, _ipc_channel_t *channel, connection_t *connection)
+static int _await_channel_connection(
+    task_t *task, _ipc_channel_t *channel, connection_t *connection, bool *lock_interrupts_enabled)
 {
-    if (task == NULL || channel == NULL || connection == NULL)
+    if (task == NULL || channel == NULL || connection == NULL || lock_interrupts_enabled == NULL)
         return -1;
 
     if (channel->owner_task_id == task->id) {
@@ -358,7 +361,9 @@ static int _await_channel_connection(task_t *task, _ipc_channel_t *channel, conn
             int result = _poll_channel_connection(task, channel, connection);
             if (result <= 0)
                 return result;
+            spinlock_unlock_irqrestore(&_ipc_lock, *lock_interrupts_enabled);
             sleep(1);
+            *lock_interrupts_enabled = spinlock_lock_irqsave(&_ipc_lock);
         }
     }
 
@@ -373,7 +378,9 @@ static int _await_channel_connection(task_t *task, _ipc_channel_t *channel, conn
         }
         if (candidate->state == IPC_CONN_REJECTED)
             return -1;
+        spinlock_unlock_irqrestore(&_ipc_lock, *lock_interrupts_enabled);
         sleep(1);
+        *lock_interrupts_enabled = spinlock_lock_irqsave(&_ipc_lock);
         candidate = _get_connection_by_task_id(channel, task->id);
         if (candidate == NULL)
             return -1;
@@ -407,33 +414,18 @@ static int _reject_channel_connection(task_t *task, _ipc_channel_t *channel, con
     return 0;
 }
 
-static int _queue_message_packet(
+static int _queue_packet(
     _ipc_packet_queue_t *queue,
-    uint64_t connection_id,
-    uint64_t sender_task_id,
-    const void *payload,
-    uint64_t payload_len)
-{
-    _ipc_packet_t *packet = _new_packet(
-        IPC_CHANNEL_PACKET_MESSAGE, connection_id, sender_task_id, 0, payload, payload_len, NULL);
-    if (packet == NULL)
-        return -1;
-    if (_enqueue_packet(queue, packet) != 0) {
-        _free_packet(packet);
-        return -1;
-    }
-    return 0;
-}
-
-static int _queue_object_packet(
-    _ipc_packet_queue_t *queue,
+    uint32_t type,
     uint64_t connection_id,
     uint64_t sender_task_id,
     uint64_t flags,
+    const void *payload,
+    uint64_t payload_len,
     rsrc_t *resource)
 {
-    _ipc_packet_t *packet = _new_packet(
-        IPC_CHANNEL_PACKET_OBJECT, connection_id, sender_task_id, flags, NULL, 0, resource);
+    _ipc_packet_t *packet
+        = _new_packet(type, connection_id, sender_task_id, flags, payload, payload_len, resource);
     if (packet == NULL)
         return -1;
     if (_enqueue_packet(queue, packet) != 0) {
@@ -453,9 +445,18 @@ static int _send_channel(task_t *task, _ipc_channel_t *channel, const void *data
             _ipc_connection_t *connection = &channel->connections[i];
             if (connection->task_id == 0 || connection->state != IPC_CONN_ACCEPTED)
                 continue;
-            if (_queue_message_packet(&connection->queue, connection->task_id, task->id, data, size)
-                != 0)
+            if (_queue_packet(
+                    &connection->queue,
+                    IPC_CHANNEL_PACKET_MESSAGE,
+                    connection->task_id,
+                    task->id,
+                    0,
+                    data,
+                    size,
+                    NULL)
+                != 0) {
                 return -1;
+            }
         }
         return 0;
     }
@@ -463,7 +464,8 @@ static int _send_channel(task_t *task, _ipc_channel_t *channel, const void *data
     _ipc_connection_t *connection = _get_connection_by_task_id(channel, task->id);
     if (connection == NULL || connection->state != IPC_CONN_ACCEPTED)
         return -1;
-    return _queue_message_packet(&channel->owner_queue, task->id, task->id, data, size);
+    return _queue_packet(
+        &channel->owner_queue, IPC_CHANNEL_PACKET_MESSAGE, task->id, task->id, 0, data, size, NULL);
 }
 
 static int _send_channel_to(
@@ -477,7 +479,15 @@ static int _send_channel_to(
     if (connection == NULL || connection->state != IPC_CONN_ACCEPTED)
         return -1;
 
-    return _queue_message_packet(&connection->queue, connection_id, task->id, data, size);
+    return _queue_packet(
+        &connection->queue,
+        IPC_CHANNEL_PACKET_MESSAGE,
+        connection_id,
+        task->id,
+        0,
+        data,
+        size,
+        NULL);
 }
 
 static int _send_channel_resource(
@@ -498,14 +508,29 @@ static int _send_channel_resource(
         _ipc_connection_t *connection = _get_connection_by_task_id(channel, connection_id);
         if (connection == NULL || connection->state != IPC_CONN_ACCEPTED)
             return -1;
-        return _queue_object_packet(
-            &connection->queue, connection_id, task->id, flags, entry->resource);
+        return _queue_packet(
+            &connection->queue,
+            IPC_CHANNEL_PACKET_OBJECT,
+            connection_id,
+            task->id,
+            flags,
+            NULL,
+            0,
+            entry->resource);
     }
 
     _ipc_connection_t *connection = _get_connection_by_task_id(channel, task->id);
     if (connection == NULL || connection->state != IPC_CONN_ACCEPTED)
         return -1;
-    return _queue_object_packet(&channel->owner_queue, task->id, task->id, flags, entry->resource);
+    return _queue_packet(
+        &channel->owner_queue,
+        IPC_CHANNEL_PACKET_OBJECT,
+        task->id,
+        task->id,
+        flags,
+        NULL,
+        0,
+        entry->resource);
 }
 
 static int _write_packet(_ipc_packet_t *packet, task_t *receiver, void *buffer, uint64_t buffer_len)
@@ -613,13 +638,16 @@ static rsrc_status_t _channel_domain_open(
     if (node == NULL)
         return RSRC_ERROR_NOT_FOUND;
 
+    bool interrupts_enabled = spinlock_lock_irqsave(&_ipc_lock);
     if (node->resource->header.type != RSRC_TYPE_COLLECTION
         && _channel_connect_resource(task_get_current(), node->resource) < 0) {
+        spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
         return RSRC_ERROR_IO;
     }
 
     *out_resource = node->resource;
     *out_handle_state = NULL;
+    spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
     return RSRC_STATUS_OK;
 }
 
@@ -633,13 +661,16 @@ static rsrc_status_t _channel_domain_lookup(
     if (node == NULL)
         return RSRC_ERROR_NOT_FOUND;
 
+    bool interrupts_enabled = spinlock_lock_irqsave(&_ipc_lock);
     if (node->resource->header.type != RSRC_TYPE_COLLECTION
         && _channel_connect_resource(task_get_current(), node->resource) < 0) {
+        spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
         return RSRC_ERROR_IO;
     }
 
     *out_resource = node->resource;
     *out_handle_state = NULL;
+    spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
     return RSRC_STATUS_OK;
 }
 
@@ -669,15 +700,21 @@ static rsrc_status_t _channel_read_op(
     if (current == NULL)
         return RSRC_ERROR;
 
+    bool interrupts_enabled = spinlock_lock_irqsave(&_ipc_lock);
     _ipc_packet_queue_t *queue = _queue_for_task(channel, current);
-    if (queue == NULL)
+    if (queue == NULL) {
+        spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
         return RSRC_ERROR_BAD_HANDLE;
+    }
 
     int result = _receive_packet(current, channel, queue, buffer, buffer_len);
-    if (result < 0)
+    if (result < 0) {
+        spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
         return RSRC_ERROR_INVALID_ARGUMENT;
+    }
 
     *out_bytes_read = (uint64_t) result;
+    spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
     return RSRC_STATUS_OK;
 }
 
@@ -694,11 +731,15 @@ static rsrc_status_t _channel_write_op(
     }
     (void) handle_state;
 
+    bool interrupts_enabled = spinlock_lock_irqsave(&_ipc_lock);
     if (_send_channel(task_get_current(), (_ipc_channel_t *) resource->type_state, buffer, buffer_len)
-        != 0)
+        != 0) {
+        spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
         return RSRC_ERROR_IO;
+    }
 
     *out_bytes_written = buffer_len;
+    spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
     return RSRC_STATUS_OK;
 }
 
@@ -713,10 +754,13 @@ static rsrc_status_t _channel_poll_op(
     if (current == NULL)
         return RSRC_ERROR;
 
+    bool interrupts_enabled = spinlock_lock_irqsave(&_ipc_lock);
     _ipc_channel_t *channel = (_ipc_channel_t *) resource->type_state;
     _ipc_packet_queue_t *queue = _queue_for_task(channel, current);
-    if (queue == NULL)
+    if (queue == NULL) {
+        spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
         return RSRC_ERROR_BAD_HANDLE;
+    }
 
     uint64_t ready = 0;
     if ((requested_events & RSRC_POLL_READ) != 0 && queue->count > 0)
@@ -725,6 +769,7 @@ static rsrc_status_t _channel_poll_op(
         ready |= RSRC_POLL_WRITE;
 
     *out_ready_events = ready;
+    spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
     return RSRC_STATUS_OK;
 }
 
@@ -754,11 +799,15 @@ rsrc_status_t ipc_channel_create(const char *name, rsrc_t **out_resource)
             return RSRC_ERROR_INVALID_ARGUMENT;
     }
 
+    bool interrupts_enabled = spinlock_lock_irqsave(&_ipc_lock);
     _ipc_channel_t *channel = _create_channel(current, name);
-    if (channel == NULL)
+    if (channel == NULL) {
+        spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
         return RSRC_ERROR_NO_MEMORY;
+    }
 
     *out_resource = channel->resource;
+    spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
     return RSRC_STATUS_OK;
 }
 
@@ -783,16 +832,20 @@ static rsrc_status_t _channel_command_op(
     if (channel == NULL)
         return RSRC_ERROR_INVALID_ARGUMENT;
 
+    bool interrupts_enabled = spinlock_lock_irqsave(&_ipc_lock);
+    rsrc_status_t result = RSRC_ERROR_NOT_SUPPORTED;
+
     switch (command_id) {
     case IPC_CHANNEL_COMMAND_SEND_MESSAGE: {
         const ipc_channel_send_message_in_t *request = (const ipc_channel_send_message_in_t *) in;
         if (request == NULL || in_len < sizeof(*request)
             || in_len < sizeof(*request) + request->payload_len) {
-            return RSRC_ERROR_INVALID_ARGUMENT;
+            result = RSRC_ERROR_INVALID_ARGUMENT;
+            break;
         }
 
         if (channel->owner_task_id == current->id) {
-            return _send_channel_to(
+            result = _send_channel_to(
                        current,
                        channel,
                        request->connection_id,
@@ -801,44 +854,64 @@ static rsrc_status_t _channel_command_op(
                            == 0
                        ? RSRC_STATUS_OK
                        : RSRC_ERROR_IO;
+            break;
         }
-        return _send_channel(current, channel, request->payload, request->payload_len) == 0
-                   ? RSRC_STATUS_OK
-                   : RSRC_ERROR_IO;
+        result = _send_channel(current, channel, request->payload, request->payload_len) == 0
+                     ? RSRC_STATUS_OK
+                     : RSRC_ERROR_IO;
+        break;
     }
     case IPC_CHANNEL_COMMAND_SEND_OBJECT: {
         const ipc_channel_send_object_in_t *request = (const ipc_channel_send_object_in_t *) in;
-        if (request == NULL || in_len < sizeof(*request))
-            return RSRC_ERROR_INVALID_ARGUMENT;
-        return _send_channel_resource(
+        if (request == NULL || in_len < sizeof(*request)) {
+            result = RSRC_ERROR_INVALID_ARGUMENT;
+            break;
+        }
+        result = _send_channel_resource(
                    current, channel, request->connection_id, request->resource, request->flags)
                        == 0
                    ? RSRC_STATUS_OK
                    : RSRC_ERROR_IO;
+        break;
     }
     case IPC_CHANNEL_COMMAND_WAIT_CONNECTION:
-        if (out == NULL || out_len < sizeof(connection_t))
-            return RSRC_ERROR_INVALID_ARGUMENT;
-        return _await_channel_connection(current, channel, (connection_t *) out) == 0
-                   ? RSRC_STATUS_OK
-                   : RSRC_ERROR_IO;
+        if (out == NULL || out_len < sizeof(connection_t)) {
+            result = RSRC_ERROR_INVALID_ARGUMENT;
+            break;
+        }
+        result = _await_channel_connection(current, channel, (connection_t *) out, &interrupts_enabled)
+                     == 0
+                     ? RSRC_STATUS_OK
+                     : RSRC_ERROR_IO;
+        break;
     case IPC_CHANNEL_COMMAND_ACCEPT_CONNECTION:
-        if (out == NULL || out_len < sizeof(connection_t))
-            return RSRC_ERROR_INVALID_ARGUMENT;
-        return _accept_channel_connection(current, channel, (connection_t *) out) == 0
-                   ? RSRC_STATUS_OK
-                   : RSRC_ERROR_NOT_FOUND;
+        if (out == NULL || out_len < sizeof(connection_t)) {
+            result = RSRC_ERROR_INVALID_ARGUMENT;
+            break;
+        }
+        result = _accept_channel_connection(current, channel, (connection_t *) out) == 0
+                     ? RSRC_STATUS_OK
+                     : RSRC_ERROR_NOT_FOUND;
+        break;
     case IPC_CHANNEL_COMMAND_REJECT_CONNECTION:
-        if (out == NULL || out_len < sizeof(connection_t))
-            return RSRC_ERROR_INVALID_ARGUMENT;
-        return _reject_channel_connection(current, channel, (connection_t *) out) == 0
-                   ? RSRC_STATUS_OK
-                   : RSRC_ERROR_NOT_FOUND;
+        if (out == NULL || out_len < sizeof(connection_t)) {
+            result = RSRC_ERROR_INVALID_ARGUMENT;
+            break;
+        }
+        result = _reject_channel_connection(current, channel, (connection_t *) out) == 0
+                     ? RSRC_STATUS_OK
+                     : RSRC_ERROR_NOT_FOUND;
+        break;
     case IPC_CHANNEL_COMMAND_DISCONNECT:
-        return _disconnect_channel(current, channel) == 0 ? RSRC_STATUS_OK : RSRC_ERROR_NOT_FOUND;
+        result = _disconnect_channel(current, channel) == 0 ? RSRC_STATUS_OK : RSRC_ERROR_NOT_FOUND;
+        break;
     default:
-        return RSRC_ERROR_NOT_SUPPORTED;
+        result = RSRC_ERROR_NOT_SUPPORTED;
+        break;
     }
+
+    spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
+    return result;
 }
 
 static const rsrc_ops_t _channel_resource_ops = {
@@ -903,6 +976,7 @@ void ipc_task_cleanup(task_t *task)
     if (task == NULL)
         return;
 
+    bool interrupts_enabled = spinlock_lock_irqsave(&_ipc_lock);
     for (size_t i = 0; i < _channels_capacity; i++) {
         _ipc_channel_t *channel = _channels[i];
         if (channel == NULL)
@@ -916,4 +990,5 @@ void ipc_task_cleanup(task_t *task)
         if (_get_connection_by_task_id(channel, task->id) != NULL)
             _disconnect_channel(task, channel);
     }
+    spinlock_unlock_irqrestore(&_ipc_lock, interrupts_enabled);
 }

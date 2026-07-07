@@ -54,7 +54,7 @@
 - [x] APIC.
 - [ ] APIC timer.
 - [ ] HPET.
-- [ ] SMP.
+- [x] SMP.
 - [x] Multi-tasking.
 - [x] Scheduling.
 
@@ -71,7 +71,7 @@
 - [x] Graphics library (libgfx).
 - [x] Font rendering.
 - [x] Display protocol (libdesktop).
-- [ ] UI Library ([BlitzUI](https://codeberg.org/MONOLITH-Project/BlitzUI)).
+- [x] UI Library.
 - [ ] Desktop icons.
 - [ ] File manager.
 

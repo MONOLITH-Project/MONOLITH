@@ -47,7 +47,9 @@ typedef struct __attribute__((packed))
 #endif
 } gdt_t;
 
+#if defined(__i386__)
 extern gdt_t gdt;
+#endif
 
 /*
  * GDTR structure.
@@ -124,29 +126,22 @@ typedef struct
  */
 void gdt_init();
 
-/*
- * Set the value of a GDT gate.
- * https://wiki.osdev.org/Global_Descriptor_Table
- */
+#if defined(__i386__)
 void gdt_set_gate(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
-
-/*
- * Load the Task State Segment.
- * https://wiki.osdev.org/Task_State_Segment
- */
 void gdt_tss_load(void *);
-
-/*
- * Flush the GDT.
- * https://wiki.osdev.org/Global_Descriptor_Table#Loading_the_GDT
- */
 void gdt_flush();
+#endif
 
 /*
  * Flush the TSS.
  * https://wiki.osdev.org/Task_State_Segment#Loading_the_TSS
  */
 void gdt_flush_tss();
+
+/*
+ * Mark the loaded TSS descriptor available and reload TR.
+ */
+void gdt_reload_tss();
 
 /*
  * Set the RSP0 value in the TSS.

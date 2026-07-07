@@ -21,8 +21,6 @@ extern void _syscall_handler();
 #define USER_SPACE_START 0x0000000000001000ULL
 #define USER_SPACE_END 0x0000800000000000ULL
 
-uintptr_t syscall_kernel_stack_top;
-
 void syscalls_init()
 {
     uint64_t efer = asm_read_msr(IA32_EFER);

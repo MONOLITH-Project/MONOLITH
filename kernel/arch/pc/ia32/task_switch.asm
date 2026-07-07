@@ -24,6 +24,7 @@ _task_switch_gate_stub:
     push esp
     call _task_switch_gate
     add esp, 4
+    mov esp, eax
     mov ax, [esp + 76]
     and ax, 3
     cmp ax, 3

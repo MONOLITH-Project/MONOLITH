@@ -106,7 +106,13 @@ $(OBJ_DIR)/libs/flanterm/src/%.o: libs/flanterm/src/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(@:.o=.d) -c $< -o $@
 
 $(KERNEL_BIN): kernel flanterm | toolchain
-	$(LD) $(LDFLAGS) -o $@ $(shell find $(OBJ_DIR)/arch $(OBJ_DIR)/kernel $(OBJ_DIR)/libs -type f -name "*.o" 2>/dev/null) $(KERNEL_LIBGCC)
+	@find $(OBJ_DIR)/kernel $(OBJ_DIR)/arch -type f \( -name "*.c.o" -o -name "*.asm.o" -o -name "*.c.d" -o -name "*.asm.d" \) 2>/dev/null | while IFS= read -r file; do \
+		src="$${file#$(OBJ_DIR)/}"; \
+		src="$${src%.o}"; \
+		src="$${src%.d}"; \
+		if [ ! -e "$(PROJECT_ROOT)/$${src}" ]; then rm -f "$$file"; fi; \
+	done
+	$(LD) $(LDFLAGS) -o $@ $$(find $(OBJ_DIR)/arch $(OBJ_DIR)/kernel $(OBJ_DIR)/libs -type f -name "*.o" 2>/dev/null) $(KERNEL_LIBGCC)
 
 $(KERNEL_BIN_GZ): $(KERNEL_BIN)
 	gzip -n -c $< > $@
@@ -169,7 +175,7 @@ $(ISO_FILE): $(KERNEL_BIN_GZ) $(INITRD_TAR_GZ) $(LIMINE_CONF) $(LIMINE_READY)
 iso: $(ISO_FILE)
 
 run: all
-	$(QEMU_SYSTEM) -cdrom $(ISO_FILE) -serial stdio -enable-kvm
+	$(QEMU_SYSTEM) -cdrom $(ISO_FILE) -serial stdio -enable-kvm -smp 4 -m 1G
 
 run-headless: all
 	$(QEMU_SYSTEM) -cdrom $(ISO_FILE) -nographic

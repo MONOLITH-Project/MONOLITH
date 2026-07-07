@@ -17,8 +17,23 @@
 #define LAPIC_REG_ID 0x020
 #define LAPIC_REG_EOI 0x0B0
 #define LAPIC_REG_SPURIOUS 0x0F0
+#define LAPIC_REG_ICR_LOW 0x300
+#define LAPIC_REG_ICR_HIGH 0x310
+#define LAPIC_REG_LVT_TIMER 0x320
+#define LAPIC_REG_TIMER_INITIAL_COUNT 0x380
+#define LAPIC_REG_TIMER_CURRENT_COUNT 0x390
+#define LAPIC_REG_TIMER_DIVIDE 0x3E0
 #define LAPIC_SPURIOUS_ENABLE 0x100
 #define LAPIC_SPURIOUS_VECTOR 0xFF
+#define LAPIC_LVT_MASKED (1U << 16)
+#define LAPIC_LVT_TIMER_PERIODIC (1U << 17)
+#define LAPIC_TIMER_DIVIDE_16 0x3
+#define LAPIC_ICR_DELIVERY_STATUS (1U << 12)
+#define LAPIC_ICR_DELIVERY_INIT 0x500
+#define LAPIC_ICR_DELIVERY_STARTUP 0x600
+#define LAPIC_ICR_LEVEL_ASSERT (1U << 14)
+#define LAPIC_ICR_TRIGGER_LEVEL (1U << 15)
+#define APIC_MAX_PROCESSORS 64
 
 #define IOAPIC_REG_ID 0x00
 #define IOAPIC_REG_VER 0x01
@@ -78,6 +93,14 @@ typedef struct
 typedef struct
 {
     _madt_entry_t header;
+    uint8_t acpi_processor_id;
+    uint8_t apic_id;
+    uint32_t flags;
+} __attribute__((packed)) _madt_local_apic_t;
+
+typedef struct
+{
+    _madt_entry_t header;
     uint8_t ioapic_id;
     uint8_t reserved;
     uint32_t ioapic_addr;
@@ -111,6 +134,8 @@ static volatile uint32_t *_lapic = NULL;
 static _ioapic_t _ioapics[8];
 static size_t _ioapic_count = 0;
 static _irq_override_t _irq_overrides[16];
+static uint32_t _processor_lapic_ids[APIC_MAX_PROCESSORS];
+static size_t _processor_count = 0;
 
 static uint8_t _checksum(const void *base, size_t length)
 {
@@ -143,6 +168,15 @@ static void _lapic_write(uint32_t reg, uint32_t value)
 {
     _lapic[reg / 4] = value;
     (void) _lapic_read(LAPIC_REG_ID);
+}
+
+static void _lapic_wait_delivery(void)
+{
+    if (_lapic == NULL)
+        return;
+
+    while (_lapic_read(LAPIC_REG_ICR_LOW) & LAPIC_ICR_DELIVERY_STATUS)
+        asm_pause();
 }
 
 static uint32_t _ioapic_read(_ioapic_t *ioapic, uint8_t reg)
@@ -250,6 +284,14 @@ static void _parse_madt(_madt_t *madt, uint64_t *lapic_phys)
             break;
 
         switch (header->type) {
+        case 0: { /* Processor Local APIC */
+            if (_processor_count >= APIC_MAX_PROCESSORS)
+                break;
+            _madt_local_apic_t *local_apic = (_madt_local_apic_t *) entry;
+            if ((local_apic->flags & 0x1) == 0)
+                break;
+            _processor_lapic_ids[_processor_count++] = local_apic->apic_id;
+        } break;
         case 1: { /* I/O APIC */
             if (_ioapic_count >= sizeof(_ioapics) / sizeof(_ioapics[0]))
                 break;
@@ -331,13 +373,107 @@ void apic_init(void *rsdp_addr)
     debug_log("APIC initialized\n");
 }
 
-void apic_eoi()
+void apic_init_local(void)
+{
+    if (_lapic == NULL)
+        return;
+
+    uint64_t apic_base_msr = asm_read_msr(IA32_APIC_BASE_MSR);
+    asm_write_msr(IA32_APIC_BASE_MSR, apic_base_msr | IA32_APIC_BASE_ENABLE);
+    _lapic_write(
+        LAPIC_REG_SPURIOUS,
+        _lapic_read(LAPIC_REG_SPURIOUS) | LAPIC_SPURIOUS_ENABLE | LAPIC_SPURIOUS_VECTOR);
+}
+
+uint32_t apic_get_lapic_id(void)
+{
+    if (_lapic == NULL)
+        return 0;
+
+    return _lapic_read(LAPIC_REG_ID) >> 24;
+}
+
+size_t apic_get_processor_count(void)
+{
+    return _processor_count;
+}
+
+uint32_t apic_get_processor_lapic_id(size_t index)
+{
+    if (index >= _processor_count)
+        return 0;
+
+    return _processor_lapic_ids[index];
+}
+
+void apic_send_init_ipi(uint32_t lapic_id)
+{
+    if (_lapic == NULL)
+        return;
+
+    _lapic_wait_delivery();
+    _lapic_write(LAPIC_REG_ICR_HIGH, lapic_id << 24);
+    _lapic_write(
+        LAPIC_REG_ICR_LOW,
+        LAPIC_ICR_DELIVERY_INIT | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_TRIGGER_LEVEL);
+    _lapic_wait_delivery();
+}
+
+void apic_send_startup_ipi(uint32_t lapic_id, uint8_t vector)
+{
+    if (_lapic == NULL)
+        return;
+
+    _lapic_wait_delivery();
+    _lapic_write(LAPIC_REG_ICR_HIGH, lapic_id << 24);
+    _lapic_write(LAPIC_REG_ICR_LOW, LAPIC_ICR_DELIVERY_STARTUP | vector);
+    _lapic_wait_delivery();
+}
+
+void apic_eoi(void)
 {
     if (_lapic != NULL)
         _lapic_write(LAPIC_REG_EOI, 0);
 }
 
-bool apic_is_initialized()
+void apic_timer_mask(void)
+{
+    if (_lapic == NULL)
+        return;
+
+    _lapic_write(LAPIC_REG_TIMER_INITIAL_COUNT, 0);
+    _lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_LVT_MASKED);
+}
+
+void apic_timer_prepare_calibration(void)
+{
+    if (_lapic == NULL)
+        return;
+
+    _lapic_write(LAPIC_REG_TIMER_DIVIDE, LAPIC_TIMER_DIVIDE_16);
+    _lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_LVT_MASKED);
+    _lapic_write(LAPIC_REG_TIMER_INITIAL_COUNT, UINT32_MAX);
+}
+
+uint32_t apic_timer_current_count(void)
+{
+    if (_lapic == NULL)
+        return 0;
+
+    return _lapic_read(LAPIC_REG_TIMER_CURRENT_COUNT);
+}
+
+void apic_timer_start_periodic(uint8_t vector, uint32_t initial_count)
+{
+    if (_lapic == NULL || initial_count == 0)
+        return;
+
+    _lapic_write(LAPIC_REG_TIMER_DIVIDE, LAPIC_TIMER_DIVIDE_16);
+    _lapic_write(LAPIC_REG_LVT_TIMER, LAPIC_LVT_TIMER_PERIODIC | vector);
+    _lapic_write(LAPIC_REG_TIMER_INITIAL_COUNT, initial_count);
+}
+
+bool apic_is_initialized(void)
 {
     return _lapic != NULL;
 }

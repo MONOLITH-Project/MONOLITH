@@ -133,6 +133,7 @@ irq_common_stub:
 	mov rdi, rsp
 	xor rbp, rbp
 	call irq_handler
+    mov rsp, rax
 	POPALL
 	add rsp, 24
 	iretq

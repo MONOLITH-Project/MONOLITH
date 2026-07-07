@@ -8,5 +8,6 @@
 #include <stdint.h>
 
 void timer_init();
+void timer_init_cpu();
 void sleep(uint64_t ms);
 uint64_t timer_get_ticks();

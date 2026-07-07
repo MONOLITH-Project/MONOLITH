@@ -45,14 +45,16 @@ global _task_switch_gate_stub
 extern _task_switch_gate
 
 _task_switch_gate_stub:
-    push 0                ; error code placeholder
+    cli
+    push 0                ; error code
     push 0x30             ; interrupt vector
-    push fs               ; core placeholder
+    push fs               ; saved core selector
     PUSHALL
     cld
     mov rdi, rsp
     xor rbp, rbp
     call _task_switch_gate
+    mov rsp, rax
     POPALL
     add rsp, 24
     iretq
